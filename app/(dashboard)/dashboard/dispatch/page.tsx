@@ -522,10 +522,11 @@ export default function DispatchPage() {
     setDraftJobs(newDraft);
     setDraftChanges((prev) => [...prev, { type: "move", jobId, from: idx, to: newIdx }]);
 
-    // Show move impact briefly
+    // Show move impact — stays visible until next action
     setMoveImpact(impact);
+    setOptimizationResult(null); // clear old optimization since route changed
     if (moveImpactTimer.current) clearTimeout(moveImpactTimer.current);
-    moveImpactTimer.current = setTimeout(() => setMoveImpact(null), 3000);
+    moveImpactTimer.current = setTimeout(() => setMoveImpact(null), 8000);
   }
 
   /** Add a job to the selected truck's route at a given position */
@@ -849,7 +850,7 @@ export default function DispatchPage() {
       {/* ──── Main Content: Left Panel + Map ──── */}
       <div className="flex flex-col lg:flex-row gap-4 lg:gap-6 flex-1 min-h-0">
         {/* ── Left Panel ── */}
-        <div className="w-full lg:w-[420px] shrink-0 flex flex-col gap-3 overflow-y-auto pb-20">
+        <div className="w-full lg:w-[420px] shrink-0 flex flex-col gap-3 overflow-y-auto pb-20 pr-1 lg:pr-3">
           {/* Truck Tabs */}
           <div className="flex gap-2">
             {trucks.map((t) => {
@@ -880,21 +881,19 @@ export default function DispatchPage() {
             })}
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex gap-2 overflow-x-auto">
-            {truckJobs.length > 0 && (
-              <button
-                onClick={optimizeRoute}
-                disabled={optimizing}
-                className="flex-1 min-w-0 py-2.5 bg-gradient-to-r from-tippd-blue to-indigo-600 text-white rounded-lg text-xs sm:text-sm font-semibold flex items-center justify-center gap-1.5 sm:gap-2 hover:opacity-90 disabled:opacity-50"
-              >
-                {optimizing ? (
-                  <><Loader2 className="w-4 h-4 animate-spin" /> Optimizing...</>
-                ) : (
-                  <><Sparkles className="w-4 h-4 shrink-0" /> Optimize ({truckJobs.length})</>
-                )}
-              </button>
-            )}
+          {/* Action Buttons — always visible */}
+          <div className="flex gap-2">
+            <button
+              onClick={optimizeRoute}
+              disabled={optimizing || truckJobs.length === 0}
+              className="flex-1 min-w-0 py-2.5 bg-gradient-to-r from-tippd-blue to-indigo-600 text-white rounded-lg text-xs sm:text-sm font-semibold flex items-center justify-center gap-1.5 sm:gap-2 hover:opacity-90 disabled:opacity-50"
+            >
+              {optimizing ? (
+                <><Loader2 className="w-4 h-4 animate-spin" /> Optimizing...</>
+              ) : (
+                <><Sparkles className="w-4 h-4 shrink-0" /> {optimizationResult ? "Re-Optimize" : "Optimize"} ({truckJobs.length})</>
+              )}
+            </button>
             <button
               onClick={() => { setShowAddModal(true); setAddTargetJob(null); setAddImpact(null); setAddModalTab("unassigned"); setAddInsertPosition(-1); }}
               disabled={!selectedTruck}
