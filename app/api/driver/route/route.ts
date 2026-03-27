@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/server";
  * Returns the driver's route segments for today.
  * Falls back to building segments from assigned jobs if none exist.
  */
-export async function GET() {
+export async function GET(request: Request) {
   const supabase = await createClient();
 
   // Get current user
@@ -60,12 +60,13 @@ export async function GET() {
     });
   }
 
-  // Fallback: build segments from jobs assigned to this driver for today
-  const { data: jobs } = await supabase
+  // Fallback: build segments from jobs assigned to this driver OR their truck
+  // First try by driver ID
+  let { data: jobs } = await supabase
     .from("jobs")
     .select(`
       id, customer_name, customer_phone, drop_address, drop_lat, drop_lng,
-      job_type, status, dumpster_id, dumpster_unit_number,
+      job_type, status, dumpster_id, dumpster_unit_number, truck_id,
       dumpsters!jobs_dumpster_id_fkey ( id, unit_number, size, condition_grade )
     `)
     .eq("assigned_driver_id", user.id)
@@ -73,11 +74,66 @@ export async function GET() {
       "scheduled",
       "en_route_drop",
       "dropped",
-      "active",
       "pickup_scheduled",
       "en_route_pickup",
     ])
     .order("requested_drop_start", { ascending: true }) as any;
+
+  // If no jobs by driver, try by truck_id (from query param or any truck with jobs)
+  if (!jobs || jobs.length === 0) {
+    const url = new URL(request.url);
+    const truckId = url.searchParams.get("truck_id");
+
+    if (truckId) {
+      const result = await supabase
+        .from("jobs")
+        .select(`
+          id, customer_name, customer_phone, drop_address, drop_lat, drop_lng,
+          job_type, status, dumpster_id, dumpster_unit_number, truck_id,
+          dumpsters!jobs_dumpster_id_fkey ( id, unit_number, size, condition_grade )
+        `)
+        .eq("truck_id", truckId)
+        .in("status", [
+          "scheduled",
+          "en_route_drop",
+          "dropped",
+          "pickup_scheduled",
+          "en_route_pickup",
+        ])
+        .order("requested_drop_start", { ascending: true }) as any;
+      jobs = result.data;
+
+      // Also assign the driver to these jobs
+      if (jobs && jobs.length > 0) {
+        for (const job of jobs) {
+          await supabase
+            .from("jobs")
+            .update({ assigned_driver_id: user.id })
+            .eq("id", job.id);
+        }
+      }
+    } else {
+      // No truck specified — try to find any truck with jobs assigned
+      const result = await supabase
+        .from("jobs")
+        .select(`
+          id, customer_name, customer_phone, drop_address, drop_lat, drop_lng,
+          job_type, status, dumpster_id, dumpster_unit_number, truck_id,
+          dumpsters!jobs_dumpster_id_fkey ( id, unit_number, size, condition_grade )
+        `)
+        .not("truck_id", "is", null)
+        .in("status", [
+          "scheduled",
+          "en_route_drop",
+          "dropped",
+          "pickup_scheduled",
+          "en_route_pickup",
+        ])
+        .order("requested_drop_start", { ascending: true })
+        .limit(20) as any;
+      jobs = result.data;
+    }
+  }
 
   if (!jobs || jobs.length === 0) {
     return NextResponse.json({

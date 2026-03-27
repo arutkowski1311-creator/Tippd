@@ -187,7 +187,8 @@ export default function DriverRoute() {
   // Load route data
   const loadRoute = useCallback(async () => {
     try {
-      const res = await fetch("/api/driver/route");
+      const truckParam = selectedTruck ? `?truck_id=${selectedTruck}` : "";
+      const res = await fetch(`/api/driver/route${truckParam}`);
       if (!res.ok) {
         if (res.status === 401) {
           router.push("/driver/login");
@@ -336,7 +337,7 @@ export default function DriverRoute() {
             {trucks.map((t) => (
               <button
                 key={t.id}
-                onClick={() => setSelectedTruck(t.id)}
+                onClick={() => { setSelectedTruck(t.id); setTimeout(loadRoute, 300); }}
                 className={cn(
                   "flex-1 py-2 px-3 rounded-xl text-sm font-semibold transition-colors text-center",
                   selectedTruck === t.id
