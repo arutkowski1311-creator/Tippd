@@ -91,6 +91,14 @@ export default function DriverJobPage() {
   const [phase, setPhase] = useState<StopPhase>("loading");
   const [photos, setPhotos] = useState<string[]>([]);
   const [weight, setWeight] = useState("");
+  const [weightOverageInfo, setWeightOverageInfo] = useState<{
+    is_over: boolean;
+    overage_lbs: number;
+    overage_tons: number;
+    overage_charge: number;
+    included_lbs: number;
+    message: string;
+  } | null>(null);
   const [condition, setCondition] = useState<ConditionGrade | "">("");
   const [notes, setNotes] = useState("");
   const [processing, setProcessing] = useState(false);
@@ -331,6 +339,25 @@ export default function DriverJobPage() {
   }
 
   async function handleDumpComplete() {
+    // Record weight at dump before completing
+    if (weight && segment?.job_id) {
+      try {
+        const weightRes = await fetch("/api/driver/dump-weight", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            job_id: segment.job_id,
+            weight_lbs: parseInt(weight),
+          }),
+        });
+        const weightData = await weightRes.json();
+        if (weightData.is_over) {
+          setWeightOverageInfo(weightData);
+        }
+      } catch {
+        // Non-fatal — continue with dump complete
+      }
+    }
     const result = await sendAction("dump_complete");
     if (result?.ok) {
       setPhase("complete");
@@ -841,15 +868,59 @@ export default function DriverJobPage() {
           </button>
         )}
 
-        {/* DUMP ARRIVED → DUMP COMPLETE */}
+        {/* DUMP ARRIVED → Enter weight → DUMP COMPLETE */}
         {phase === "dump_arrived" && (
-          <button
-            onClick={handleDumpComplete}
-            disabled={processing}
-            className="w-full py-5 bg-emerald-600 text-white rounded-2xl text-xl font-bold active:opacity-80 shadow-lg disabled:opacity-50"
-          >
-            {processing ? <Loader2 className="w-6 h-6 animate-spin mx-auto" /> : "DUMP COMPLETE"}
-          </button>
+          <div className="space-y-3">
+            {/* Weight entry from scale ticket */}
+            <div className="bg-white rounded-2xl border-2 border-gray-200 p-4">
+              <p className="text-sm font-semibold text-gray-700 mb-2">Scale Ticket Weight</p>
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  value={weight}
+                  onChange={(e) => setWeight(e.target.value)}
+                  placeholder="Enter weight"
+                  className="flex-1 h-14 px-4 rounded-xl border-2 border-gray-200 text-2xl font-bold text-center"
+                  inputMode="numeric"
+                />
+                <div className="flex items-center px-4 bg-gray-100 rounded-xl text-sm font-medium text-gray-600">
+                  lbs
+                </div>
+              </div>
+              {weight && parseInt(weight) > 0 && (
+                <p className="text-xs text-gray-500 mt-2 text-center">
+                  {segment?.box_size || "20yd"} includes {
+                    segment?.box_size === "10yd" ? "4,000" :
+                    segment?.box_size === "30yd" ? "10,000" : "8,000"
+                  } lbs
+                </p>
+              )}
+            </div>
+
+            {/* Overage warning */}
+            {weightOverageInfo?.is_over && (
+              <div className="bg-amber-50 border-2 border-amber-200 rounded-2xl p-4 text-center">
+                <p className="text-sm font-bold text-amber-800">⚠ Weight Overage</p>
+                <p className="text-lg font-bold text-amber-900 mt-1">
+                  {weightOverageInfo.overage_lbs.toLocaleString()} lbs over ({weightOverageInfo.overage_tons} tons)
+                </p>
+                <p className="text-sm font-semibold text-red-600 mt-1">
+                  Additional charge: ${weightOverageInfo.overage_charge.toFixed(2)}
+                </p>
+              </div>
+            )}
+
+            <button
+              onClick={handleDumpComplete}
+              disabled={processing || !weight}
+              className="w-full py-5 bg-emerald-600 text-white rounded-2xl text-xl font-bold active:opacity-80 shadow-lg disabled:opacity-50"
+            >
+              {processing ? <Loader2 className="w-6 h-6 animate-spin mx-auto" /> : "DUMP COMPLETE"}
+            </button>
+            {!weight && (
+              <p className="text-xs text-red-500 text-center">Enter the scale ticket weight before completing</p>
+            )}
+          </div>
         )}
 
         {/* COMPLETE → NEXT STOP */}
