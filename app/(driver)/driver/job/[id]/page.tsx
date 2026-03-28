@@ -242,21 +242,21 @@ export default function DriverJobPage() {
         }),
       });
       const data = await res.json();
-      setProcessing(false);
 
       if (!res.ok || data?.error) {
         const errMsg = data?.error || data?.reason || "Action failed";
         setActionError(errMsg);
+        setProcessing(false);
         return { ok: false, error: errMsg };
       }
 
+      setProcessing(false);
       return { ok: true };
     } catch (err: any) {
       console.error("Action failed:", err);
       setActionError(err.message || "Network error");
-      return null;
-    } finally {
       setProcessing(false);
+      return null;
     }
   }
 
@@ -411,7 +411,14 @@ export default function DriverJobPage() {
 
   function goToNextSegment() {
     if (segment?.next_segment) {
-      router.push(`/driver/job/${segment.next_segment.id}`);
+      const next = segment.next_segment;
+      // Only navigate to job detail for drop/pickup segments with a job_id
+      if ((next.type === "drop" || next.type === "pickup") && next.job_id) {
+        router.push(`/driver/job/${next.job_id}`);
+      } else {
+        // For dump, yard, lunch segments — go back to route list
+        router.push("/driver");
+      }
     } else {
       router.push("/driver");
     }
