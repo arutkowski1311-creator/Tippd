@@ -46,6 +46,8 @@ export async function POST(
       picked_up: "picked_up",
       dump_arrived: currentStatus, // no job status change for dump
       dump_complete: currentStatus, // no job status change for dump
+      schedule_pickup: "pickup_scheduled",
+      cancel: "cancelled",
     };
     newStatus = actionMap[body.action] || currentStatus;
 
