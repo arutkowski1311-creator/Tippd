@@ -1,7 +1,7 @@
 import { getAuthContext, json, error } from "@/lib/api-helpers";
 
 export async function GET() {
-  const ctx = await getAuthContext(["owner", "manager"]);
+  const ctx = await getAuthContext(["owner", "manager", "driver"]);
   if ("error" in ctx) return ctx.error;
 
   const { data, error: dbError } = await ctx.supabase

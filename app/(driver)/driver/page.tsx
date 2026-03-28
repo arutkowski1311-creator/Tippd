@@ -327,9 +327,14 @@ export default function DriverRoute() {
         <div className="text-center px-6">
           <Truck className="w-12 h-12 text-gray-300 mx-auto mb-4" />
           <h2 className="text-lg font-bold text-gray-700 mb-1">No Route Today</h2>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-gray-500 mb-2">
             No segments or jobs have been assigned for today. Check back later or contact dispatch.
           </p>
+          {error && <p className="text-xs text-red-500">{error}</p>}
+          {trucks.length === 0 && <p className="text-xs text-amber-500">No trucks loaded — possible auth issue</p>}
+          <button onClick={() => loadRoute()} className="mt-3 px-4 py-2 bg-tippd-blue text-white rounded-lg text-sm font-semibold">
+            Retry
+          </button>
         </div>
       </div>
     );
