@@ -185,9 +185,11 @@ export default function DriverRoute() {
   const lastGpsUpdate = useRef<number>(0);
 
   // Load route data
-  const loadRoute = useCallback(async () => {
+  const loadRoute = useCallback(async (truckId?: string | null) => {
+    const tid = truckId ?? selectedTruck;
     try {
-      const truckParam = selectedTruck ? `?truck_id=${selectedTruck}` : "";
+      setLoading(true);
+      const truckParam = tid ? `?truck_id=${tid}` : "";
       const res = await fetch(`/api/driver/route${truckParam}`);
       if (!res.ok) {
         if (res.status === 401) {
@@ -200,16 +202,16 @@ export default function DriverRoute() {
       setSegments(data.segments || []);
       setDriverName(data.driver_name || "Driver");
       setRouteDate(data.date || new Date().toISOString().split("T")[0]);
+      setError(null);
     } catch (err: any) {
       setError(err.message);
     } finally {
       setLoading(false);
     }
-  }, [router]);
+  }, [router, selectedTruck]);
 
+  // Load trucks on mount
   useEffect(() => {
-    loadRoute();
-    // Load available trucks
     (async () => {
       try {
         const res = await fetch("/api/trucks");
@@ -217,13 +219,20 @@ export default function DriverRoute() {
           const data = await res.json();
           const activeTrucks = (Array.isArray(data) ? data : []).filter((t: any) => t.status === "active");
           setTrucks(activeTrucks);
-          if (activeTrucks.length > 0 && !selectedTruck) {
+          if (activeTrucks.length > 0) {
             setSelectedTruck(activeTrucks[0].id);
           }
         }
       } catch {}
     })();
-  }, [loadRoute]);
+  }, []);
+
+  // Reload route when truck changes
+  useEffect(() => {
+    if (selectedTruck) {
+      loadRoute(selectedTruck);
+    }
+  }, [selectedTruck]);
 
   // GPS tracking — send position every 30s
   useEffect(() => {
@@ -395,9 +404,10 @@ export default function DriverRoute() {
           const isActive = seg.status === "active";
           const isCompleted = seg.status === "completed";
 
-          // Build the href for tappable segments — any non-completed job segment is tappable
-          const isTappable = !isCompleted && (seg.type === "drop" || seg.type === "pickup" || seg.type === "dump");
-          const href = isTappable ? `/driver/job/${seg.job_id || seg.id}` : null;
+          // Build the href for tappable segments
+          const isJobSegment = seg.type === "drop" || seg.type === "pickup";
+          const isTappable = !isCompleted && isJobSegment && seg.job_id;
+          const href = isTappable ? `/driver/job/${seg.job_id}` : null;
 
           return (
             <div
@@ -546,6 +556,55 @@ export default function DriverRoute() {
                     <p className="text-[11px] text-purple-600 mt-1 italic">
                       {seg.decision_reason}
                     </p>
+                  )}
+
+                  {/* Inline action buttons for non-job segments */}
+                  {isActive && !href && seg.type === "dump" && (
+                    <div className="mt-3 flex gap-2">
+                      <button
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          if (seg.job_id) {
+                            await fetch(`/api/jobs/${seg.job_id}/status`, {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ action: "dump_complete" }),
+                            });
+                          }
+                          // Mark this segment as completed in local state
+                          setSegments((prev) => prev.map((s) =>
+                            s.id === seg.id ? { ...s, status: "completed" as const } : s
+                          ));
+                          // Mark next segment as active
+                          setSegments((prev) => {
+                            const idx = prev.findIndex((s) => s.id === seg.id);
+                            if (idx >= 0 && idx < prev.length - 1) {
+                              return prev.map((s, i) => i === idx + 1 ? { ...s, status: "active" as const } : s);
+                            }
+                            return prev;
+                          });
+                        }}
+                        className="flex-1 py-3 bg-red-600 text-white rounded-xl font-bold text-sm active:bg-red-700"
+                      >
+                        ✓ Dump Complete
+                      </button>
+                    </div>
+                  )}
+                  {isActive && seg.type === "yard_return" && (
+                    <div className="mt-3 flex gap-2">
+                      <button
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          setSegments((prev) => prev.map((s) =>
+                            s.id === seg.id ? { ...s, status: "completed" as const } : s
+                          ));
+                          router.push("/driver/complete");
+                        }}
+                        className="flex-1 py-3 bg-emerald-600 text-white rounded-xl font-bold text-sm active:bg-emerald-700"
+                      >
+                        ✓ Day Complete — Back at Yard
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>

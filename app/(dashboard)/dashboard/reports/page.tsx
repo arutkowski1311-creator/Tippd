@@ -1,6 +1,20 @@
-import { BarChart3, Users, Truck, DollarSign, Sparkles } from "lucide-react";
+"use client";
+
+import { useRouter } from "next/navigation";
+import { BarChart3, Users, Truck, DollarSign, Sparkles, Route, ArrowRight } from "lucide-react";
+
+const REPORTS = [
+  { icon: BarChart3, title: "P&L Report", desc: "Revenue, expenses, and profit by period", href: "/dashboard/reports/pnl" },
+  { icon: Users, title: "Customer Profitability", desc: "Revenue vs cost to serve per customer", href: "/dashboard/reports/customers" },
+  { icon: Truck, title: "Fleet Utilization", desc: "Deployment rates, idle units, ROI per dumpster", href: "/dashboard/reports/fleet" },
+  { icon: DollarSign, title: "Accounts Receivable", desc: "Outstanding invoices by aging bucket", href: "/dashboard/reports/ar" },
+  { icon: Route, title: "Route Efficiency", desc: "Miles per box, dead miles, dump time", href: "/dashboard/reports/routes" },
+  { icon: Sparkles, title: "Pricing Intelligence", desc: "Demand signals, conversion rates, recommendations", href: "/dashboard/reports/pricing" },
+];
 
 export default function ReportsPage() {
+  const router = useRouter();
+
   return (
     <div>
       <h1 className="text-2xl font-bold text-white mb-6">Reports</h1>
@@ -33,17 +47,17 @@ export default function ReportsPage() {
 
       {/* Report cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {[
-          { icon: BarChart3, title: "P&L Report", desc: "Revenue, expenses, and profit by period" },
-          { icon: Users, title: "Customer Profitability", desc: "Revenue vs cost to serve per customer" },
-          { icon: Truck, title: "Fleet Utilization", desc: "Deployment rates, idle units, ROI per dumpster" },
-          { icon: DollarSign, title: "Accounts Receivable", desc: "Outstanding invoices by aging bucket" },
-          { icon: BarChart3, title: "Route Efficiency", desc: "Miles per box, dead miles, dump time" },
-          { icon: Sparkles, title: "Pricing Intelligence", desc: "Demand signals, conversion rates, recommendations" },
-        ].map((report, i) => (
-          <button key={i} className="rounded-lg border border-white/10 bg-tippd-charcoal p-5 text-left hover:border-tippd-blue/50 transition-colors">
+        {REPORTS.map((report) => (
+          <button
+            key={report.title}
+            onClick={() => router.push(report.href)}
+            className="rounded-lg border border-white/10 bg-tippd-charcoal p-5 text-left hover:border-tippd-blue/50 transition-colors group"
+          >
             <report.icon className="w-6 h-6 text-tippd-blue mb-3" />
-            <h3 className="text-sm font-semibold text-white">{report.title}</h3>
+            <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+              {report.title}
+              <ArrowRight className="w-3.5 h-3.5 text-tippd-ash opacity-0 group-hover:opacity-100 transition-opacity" />
+            </h3>
             <p className="text-xs text-tippd-ash mt-1">{report.desc}</p>
           </button>
         ))}

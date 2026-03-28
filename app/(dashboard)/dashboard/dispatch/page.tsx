@@ -708,13 +708,50 @@ export default function DispatchPage() {
     setOptimizing(false);
   }
 
-  // Auto-optimize on initial load (once we have truck + jobs + transfer stations)
+  // Auto-optimize on initial load — applies result WITHOUT marking as dirty
   const hasAutoOptimized = useRef(false);
   useEffect(() => {
     if (hasAutoOptimized.current) return;
     if (!selectedTruck || truckJobs.length === 0 || loading || transferStations.length === 0) return;
     hasAutoOptimized.current = true;
-    setTimeout(() => optimizeRoute(), 500);
+
+    // Run optimization silently (don't add to draftChanges)
+    const silentOptimize = async () => {
+      const optimizeJobs = truckJobs
+        .filter((j) => j.drop_lat && j.drop_lng)
+        .map((j) => ({
+          id: j.id, lat: j.drop_lat!, lng: j.drop_lng!, type: getJobType(j),
+          address: j.drop_address, customer_name: j.customer_name,
+          box_size: j.dumpster_size || deriveDumpsterSize(j.dumpster_unit_number),
+          box_id: j.dumpster_id || undefined, job_type: j.job_type,
+        }));
+      try {
+        const res = await fetch("/api/routes/optimize", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ jobs: optimizeJobs, yard: YARD, transfer_stations: mapTransferStations }),
+        });
+        const data: OptimizedRoute = await res.json();
+        if (data.optimized_sequence) {
+          const sequenceMap = new Map(data.optimized_sequence.map((id: string, i: number) => [id, i]));
+          setDraftJobs((prev) => prev.map((j) =>
+            j.truck_id === selectedTruck && sequenceMap.has(j.id)
+              ? { ...j, route_order: sequenceMap.get(j.id)! }
+              : j
+          ));
+          setServerJobs((prev) => prev.map((j) =>
+            j.truck_id === selectedTruck && sequenceMap.has(j.id)
+              ? { ...j, route_order: sequenceMap.get(j.id)! }
+              : j
+          ));
+          setOptimizationResult(data);
+          // NO draftChanges push — this is the baseline, not a user change
+        }
+      } catch (e) {
+        console.error("Auto-optimize failed:", e);
+      }
+    };
+    setTimeout(silentOptimize, 500);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedTruck, truckJobs.length, loading, transferStations.length]);
 

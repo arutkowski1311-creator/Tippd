@@ -27,6 +27,12 @@ export default function HomePage() {
               {METRO_PHONE}
             </a>
             <Link
+              href="/login"
+              className="px-4 py-2.5 border border-gray-200 text-gray-600 rounded-md text-sm font-medium hover:bg-gray-50 transition-colors"
+            >
+              Log In
+            </Link>
+            <Link
               href="/book"
               className="px-5 py-2.5 bg-tippd-blue text-white rounded-md text-sm font-semibold hover:opacity-90 transition-opacity"
             >
