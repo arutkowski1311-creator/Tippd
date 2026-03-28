@@ -290,6 +290,10 @@ export default function DispatchPage() {
   const [saving, setSaving] = useState(false);
   const [mapError, setMapError] = useState(false);
 
+  // ─── View Mode ───
+  const [viewMode, setViewMode] = useState<"jobs" | "segments">("segments");
+  const [fullSegments, setFullSegments] = useState<any[]>([]);
+
   // ─── Add Job Modal ───
   const [showAddModal, setShowAddModal] = useState(false);
   const [addModalTab, setAddModalTab] = useState<AddModalTab>("unassigned");
@@ -358,6 +362,39 @@ export default function DispatchPage() {
   useEffect(() => {
     loadData();
   }, [loadData, date]);
+
+  // Build full segments when truck jobs change
+  useEffect(() => {
+    if (truckJobs.length === 0) {
+      setFullSegments([]);
+      return;
+    }
+    // Dynamic import to avoid SSR issues
+    import("@/lib/build-route-segments").then(({ buildRouteSegments }) => {
+      const routeJobs = truckJobs.map((j) => ({
+        id: j.id,
+        customer_name: j.customer_name,
+        drop_address: j.drop_address,
+        drop_lat: j.drop_lat,
+        drop_lng: j.drop_lng,
+        status: j.status,
+        job_type: j.job_type,
+        dumpster_id: j.dumpster_id,
+        dumpster_unit_number: j.dumpster_unit_number,
+        dumpster_size: j.dumpster_size || deriveDumpsterSize(j.dumpster_unit_number),
+        dumpster_condition: null,
+      }));
+      const dumps = transferStations.map((ts) => ({
+        id: ts.id,
+        name: ts.name,
+        address: ts.address,
+        lat: ts.lat,
+        lng: ts.lng,
+      }));
+      const { segments } = buildRouteSegments(routeJobs, dumps, { insertLunch: true });
+      setFullSegments(segments);
+    });
+  }, [truckJobs, transferStations]);
 
   // Auto-select first truck
   useEffect(() => {
@@ -1022,6 +1059,88 @@ export default function DispatchPage() {
                 <span>{truckJobs.length} stops</span>
               </div>
             </div>
+
+            {/* View toggle */}
+            <div className="flex gap-1 mb-2">
+              <button
+                onClick={() => setViewMode("segments")}
+                className={cn("px-3 py-1 rounded text-xs font-medium transition-colors", viewMode === "segments" ? "bg-tippd-blue text-white" : "bg-white/5 text-tippd-ash hover:text-white")}
+              >
+                Full Route
+              </button>
+              <button
+                onClick={() => setViewMode("jobs")}
+                className={cn("px-3 py-1 rounded text-xs font-medium transition-colors", viewMode === "jobs" ? "bg-tippd-blue text-white" : "bg-white/5 text-tippd-ash hover:text-white")}
+              >
+                Jobs Only
+              </button>
+            </div>
+
+            {/* ── FULL ROUTE VIEW (segments) ── */}
+            {viewMode === "segments" && fullSegments.length > 0 && (
+              <div className="space-y-0.5 mb-2">
+                {fullSegments.map((seg, i) => (
+                  <div
+                    key={seg.id || i}
+                    className={cn(
+                      "flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs transition-colors",
+                      seg.type === "drop" ? "bg-blue-500/10 border border-blue-500/20" :
+                      seg.type === "pickup" ? "bg-orange-500/10 border border-orange-500/20" :
+                      seg.type === "dump" ? "bg-red-500/10 border border-red-500/20" :
+                      seg.type === "yard_depart" ? "bg-emerald-500/10 border border-emerald-500/20" :
+                      seg.type === "yard_return" ? "bg-emerald-500/10 border border-emerald-500/20" :
+                      seg.type === "lunch" ? "bg-amber-500/10 border border-amber-500/20" :
+                      "bg-white/5 border border-white/5"
+                    )}
+                  >
+                    <span className={cn(
+                      "w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0",
+                      seg.type === "drop" ? "bg-blue-500/30 text-blue-300" :
+                      seg.type === "pickup" ? "bg-orange-500/30 text-orange-300" :
+                      seg.type === "dump" ? "bg-red-500/30 text-red-300" :
+                      seg.type === "yard_depart" || seg.type === "yard_return" ? "bg-emerald-500/30 text-emerald-300" :
+                      seg.type === "lunch" ? "bg-amber-500/30 text-amber-300" :
+                      "bg-white/10 text-tippd-ash"
+                    )}>
+                      {seg.type === "drop" ? "↓" :
+                       seg.type === "pickup" ? "↑" :
+                       seg.type === "dump" ? "🏭" :
+                       seg.type === "yard_depart" ? "🟢" :
+                       seg.type === "yard_return" ? "🏠" :
+                       seg.type === "lunch" ? "☕" : i}
+                    </span>
+
+                    <div className="flex-1 min-w-0">
+                      <span className={cn(
+                        "font-medium truncate block",
+                        seg.type === "drop" ? "text-blue-300" :
+                        seg.type === "pickup" ? "text-orange-300" :
+                        seg.type === "dump" ? "text-red-300" :
+                        seg.type === "yard_depart" || seg.type === "yard_return" ? "text-emerald-300" :
+                        seg.type === "lunch" ? "text-amber-300" :
+                        "text-tippd-smoke"
+                      )}>
+                        {seg.customer_name || seg.label}
+                      </span>
+                      {seg.decision_reason && (
+                        <span className="text-[10px] text-purple-400 italic block truncate">{seg.decision_reason}</span>
+                      )}
+                    </div>
+
+                    <div className="shrink-0 text-right text-tippd-ash">
+                      {seg.planned_drive_miles > 0 && <span>{seg.planned_drive_miles}mi</span>}
+                      {seg.planned_drive_miles > 0 && seg.planned_total_minutes > 0 && <span> · </span>}
+                      {seg.planned_total_minutes > 0 && <span>{seg.planned_total_minutes}m</span>}
+                    </div>
+
+                    {seg.box_size && (
+                      <span className="shrink-0 text-[10px] px-1 py-0.5 rounded bg-white/5 text-tippd-smoke">{seg.box_size}</span>
+                    )}
+                    {seg.box_reused && <span className="shrink-0 text-emerald-400 font-bold" title="Box reused">♻</span>}
+                  </div>
+                ))}
+              </div>
+            )}
 
             {/* Over-capacity warning */}
             {isOverCapacity && (

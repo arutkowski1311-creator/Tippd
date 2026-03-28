@@ -122,110 +122,39 @@ export async function GET(request: Request) {
     });
   }
 
-  // Build quick segments from jobs (simplified — no routing engine, just ordered stops)
-  const builtSegments: any[] = [];
-  let seq = 0;
+  // Get dump locations for route building
+  const { data: dumpLocations } = await supabase
+    .from("dump_locations")
+    .select("id, name, address, lat, lng")
+    .eq("is_active", true) as any;
 
-  // Yard depart
-  builtSegments.push({
-    id: `generated-yard-depart`,
-    sequence_number: seq++,
-    type: "yard_depart",
-    label: "Start at yard",
-    status: "pending",
-    planned_drive_minutes: 0,
-    planned_stop_minutes: 0,
-    planned_total_minutes: 0,
-    planned_drive_miles: 0,
-  });
-
-  for (const job of jobs) {
-    const isDrop = ["scheduled", "en_route_drop"].includes(job.status);
-    const isPickup = ["pickup_scheduled", "en_route_pickup", "dropped", "active"].includes(job.status);
+  // Build route jobs with dumpster info
+  const routeJobs = jobs.map((job: any) => {
     const dumpster = job.dumpsters;
-
-    if (isDrop) {
-      builtSegments.push({
-        id: job.id,
-        job_id: job.id,
-        sequence_number: seq++,
-        type: "drop",
-        label: `DROP - ${job.customer_name}`,
-        customer_name: job.customer_name,
-        to_address: job.drop_address,
-        to_lat: job.drop_lat,
-        to_lng: job.drop_lng,
-        box_id: dumpster?.id,
-        box_size: dumpster?.size,
-        box_condition: dumpster?.condition_grade,
-        status: "pending",
-        planned_drive_minutes: 15,
-        planned_stop_minutes: 15,
-        planned_total_minutes: 30,
-        planned_drive_miles: 8,
-      });
-    } else if (isPickup) {
-      builtSegments.push({
-        id: job.id,
-        job_id: job.id,
-        sequence_number: seq++,
-        type: "pickup",
-        label: `PICKUP - ${job.customer_name}`,
-        customer_name: job.customer_name,
-        to_address: job.drop_address,
-        to_lat: job.drop_lat,
-        to_lng: job.drop_lng,
-        box_id: dumpster?.id,
-        box_size: dumpster?.size,
-        box_condition: dumpster?.condition_grade,
-        status: "pending",
-        planned_drive_minutes: 15,
-        planned_stop_minutes: 20,
-        planned_total_minutes: 35,
-        planned_drive_miles: 8,
-      });
-
-      // Add dump after pickup
-      builtSegments.push({
-        id: `generated-dump-${job.id}`,
-        sequence_number: seq++,
-        type: "dump",
-        label: "DUMP - Transfer Station",
-        job_id: job.id,
-        status: "pending",
-        planned_drive_minutes: 10,
-        planned_stop_minutes: 20,
-        planned_total_minutes: 30,
-        planned_drive_miles: 5,
-      });
-    }
-  }
-
-  // Yard return
-  builtSegments.push({
-    id: `generated-yard-return`,
-    sequence_number: seq++,
-    type: "yard_return",
-    label: "Return to yard",
-    status: "pending",
-    planned_drive_minutes: 15,
-    planned_stop_minutes: 0,
-    planned_total_minutes: 15,
-    planned_drive_miles: 8,
+    return {
+      id: job.id,
+      customer_name: job.customer_name,
+      customer_phone: job.customer_phone,
+      drop_address: job.drop_address,
+      drop_lat: job.drop_lat,
+      drop_lng: job.drop_lng,
+      status: job.status,
+      job_type: job.job_type,
+      dumpster_id: dumpster?.id || job.dumpster_id,
+      dumpster_unit_number: dumpster?.unit_number || job.dumpster_unit_number,
+      dumpster_size: dumpster?.size,
+      dumpster_condition: dumpster?.condition_grade,
+    };
   });
 
-  // Mark the first actionable segment as "active"
-  let foundFirst = false;
-  for (const seg of builtSegments) {
-    if (!foundFirst && seg.status === "pending" && ["drop", "pickup", "dump"].includes(seg.type)) {
-      seg.status = "active";
-      foundFirst = true;
-    }
-  }
-  // Also mark yard_depart as completed (driver starts from yard)
-  if (builtSegments.length > 0 && builtSegments[0].type === "yard_depart") {
-    builtSegments[0].status = "completed";
-  }
+  // Use the logistics-aware route builder
+  const { buildRouteSegments } = await import("@/lib/build-route-segments");
+
+  const { segments: builtSegments, totalMiles, totalMinutes } = buildRouteSegments(
+    routeJobs,
+    dumpLocations || [],
+    { insertLunch: true, lunchAfterStop: 4 }
+  );
 
   return NextResponse.json({
     segments: builtSegments,
@@ -233,5 +162,7 @@ export async function GET(request: Request) {
     driver_name: profile.name,
     date: today,
     generated: true,
+    totalMiles,
+    totalMinutes,
   });
 }
