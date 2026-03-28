@@ -88,6 +88,7 @@ export default function DriverJobPage() {
 
   const [segment, setSegment] = useState<SegmentData | null>(null);
   const [realSegmentId, setRealSegmentId] = useState<string>(segmentId);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [phase, setPhase] = useState<StopPhase>("loading");
   const [photos, setPhotos] = useState<string[]>([]);
@@ -224,42 +225,35 @@ export default function DriverJobPage() {
 
   async function sendAction(action: string, extra?: Record<string, any>) {
     setProcessing(true);
+    setActionError(null);
     try {
-      const isGenerated = realSegmentId.startsWith("generated-");
+      // Always use the job status API — it's the most reliable path
+      const jobId = segment?.job_id || segmentId;
 
-      if (isGenerated && segment?.job_id) {
-        // Generated segments aren't in the DB — update the job via API
-        const res = await fetch(`/api/jobs/${segment.job_id}/status`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action,
-            condition: condition || undefined,
-            notes: extra?.notes || notes || undefined,
-          }),
-        });
-        const data = await res.json();
-        setProcessing(false);
-        return data?.error ? { ok: false } : { ok: true };
-      }
-
-      // Real segment in the database
-      const res = await fetch(`/api/driver/segment/${realSegmentId}`, {
+      const res = await fetch(`/api/jobs/${jobId}/status`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action,
+          condition: condition || undefined,
+          notes: extra?.notes || notes || undefined,
           photos: photos.length > 0 ? photos : undefined,
           weight: weight ? parseInt(weight) : undefined,
-          condition: condition || undefined,
-          notes: notes || undefined,
-          ...extra,
         }),
       });
       const data = await res.json();
-      return data;
-    } catch (err) {
+      setProcessing(false);
+
+      if (!res.ok || data?.error) {
+        const errMsg = data?.error || data?.reason || "Action failed";
+        setActionError(errMsg);
+        return { ok: false, error: errMsg };
+      }
+
+      return { ok: true };
+    } catch (err: any) {
       console.error("Action failed:", err);
+      setActionError(err.message || "Network error");
       return null;
     } finally {
       setProcessing(false);
@@ -857,6 +851,12 @@ export default function DriverJobPage() {
       {/* ────── MAIN ACTION BUTTONS (fixed at bottom) ────── */}
 
       <div className="fixed bottom-20 left-4 right-4 space-y-2 z-20">
+        {/* Error display */}
+        {actionError && (
+          <div className="bg-red-600 text-white px-4 py-3 rounded-xl text-sm font-medium text-center shadow-lg">
+            ⚠️ {actionError}
+          </div>
+        )}
         {/* EN ROUTE → ARRIVED */}
         {(phase === "en_route" || phase === "dump_en_route") && (
           <button

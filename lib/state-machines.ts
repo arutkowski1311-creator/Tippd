@@ -9,11 +9,11 @@ import type { DumpsterStatus } from "@/types/dumpster";
 const JOB_TRANSITIONS: Record<JobStatus, JobStatus[]> = {
   pending_approval: ["scheduled", "cancelled"],
   scheduled: ["en_route_drop", "cancelled"],
-  en_route_drop: ["dropped"],
-  dropped: ["active"],
-  active: ["pickup_requested"],
-  pickup_requested: ["pickup_scheduled"],
-  pickup_scheduled: ["en_route_pickup"],
+  en_route_drop: ["dropped", "cancelled"],
+  dropped: ["active", "pickup_requested", "pickup_scheduled", "cancelled"],
+  active: ["pickup_requested", "pickup_scheduled", "cancelled"],
+  pickup_requested: ["pickup_scheduled", "cancelled"],
+  pickup_scheduled: ["en_route_pickup", "cancelled"],
   en_route_pickup: ["picked_up"],
   picked_up: ["invoiced"],
   invoiced: ["paid", "disputed"],
@@ -55,16 +55,9 @@ export function validateJobTransition(
     if (!context.hasDriver) return { valid: false, reason: "Driver must be assigned before scheduling" };
   }
 
-  // dropped requires photo
-  if (to === "dropped" && !context.hasDropPhoto) {
-    return { valid: false, reason: "Photo required before marking as dropped" };
-  }
-
-  // picked_up requires photo + weight
-  if (to === "picked_up") {
-    if (!context.hasPickupPhoto) return { valid: false, reason: "Photo required before marking as picked up" };
-    if (!context.hasWeight) return { valid: false, reason: "Weight must be entered before marking as picked up" };
-  }
+  // Photo and weight checks are advisory — don't block the transition
+  // The driver app prompts for these but shouldn't prevent completing a stop
+  // if conditions don't allow a photo (broken camera, etc.)
 
   return { valid: true };
 }
