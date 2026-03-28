@@ -1,13 +1,15 @@
 /**
- * TIPPD SMS Templates
+ * TIPPD SMS Templates — Conversational Style
  *
  * Messaging philosophy:
- * - Minimal, purposeful communication
- * - No specific times until absolutely necessary
- * - Reply codes: 1 = confirm/accept, 2 = reschedule/different option, 3 = talk to us
- * - STOP = opt out
- * - Never ask for review if: late fees applied, rescheduled by us
+ * - Sound like a real person, not a robot
+ * - No numbered reply options — customers reply naturally
+ * - Keep it brief. This is texting, not email.
+ * - AI handles all inbound responses conversationally
+ * - Only escalate to humans when necessary
  */
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 export type TemplateType =
   | "booking_confirmation"
@@ -30,90 +32,104 @@ export type TemplateType =
   | "special_offer"
   | "extension_ack";
 
-// ─── Templates ───
-
 export const SMS_TEMPLATES: Record<TemplateType, (...args: any[]) => string> = {
 
   // ── BOOKING FLOW ──
 
-  booking_confirmation: (p: { date: string }) =>
-    `Metro Waste: Your dumpster is scheduled for delivery on ${p.date}. You'll receive a confirmation the evening before. Terms: metrowasteservice.com/terms Reply STOP to opt out.`,
+  booking_confirmation: (p: { date: string; customerName?: string }) =>
+    p.customerName
+      ? `Hey ${p.customerName.split(" ")[0]}, your dumpster is confirmed for ${p.date}. We'll send you a heads up the evening before. Any questions, just text back!`
+      : `Your dumpster is confirmed for ${p.date}. We'll send you a heads up the evening before. Any questions, just text back!`,
 
-  evening_before_delivery: () =>
-    `Metro Waste: Your dumpster delivery is confirmed for tomorrow. Your driver will be in touch. Questions? Reply 3 to text us.`,
+  evening_before_delivery: (p: { customerName?: string }) =>
+    p.customerName
+      ? `Hey ${p.customerName.split(" ")[0]}, just a heads up — your dumpster delivery is confirmed for tomorrow. Our driver will reach out when he's on the way.`
+      : `Just a heads up — your dumpster delivery is confirmed for tomorrow. Our driver will reach out when he's on the way.`,
 
-  delivery_complete: () =>
-    `Metro Waste: Your dumpster has been delivered! Standard rental is 7 days. We'll reach out to schedule pickup. Questions? Reply 3 to text us.`,
+  delivery_complete: (p: { customerName?: string }) =>
+    p.customerName
+      ? `${p.customerName.split(" ")[0]}, your dumpster has been delivered! Standard rental is 7 days. When you're done with it, just text us and we'll come get it.`
+      : `Your dumpster has been delivered! Standard rental is 7 days. When you're done with it, just text us and we'll come get it.`,
 
   // ── PICKUP FLOW ──
 
-  pickup_approaching: () =>
-    `Metro Waste: Your dumpster rental is approaching the end of the standard 7-day period. We'll schedule your pickup soon.\nReply 1 - Ready for pickup anytime\nReply 2 - I need more time\nReply 3 - Text us`,
+  pickup_approaching: (p: { customerName?: string; daysOnSite?: number }) =>
+    p.customerName
+      ? `Hey ${p.customerName.split(" ")[0]}, your dumpster rental is coming up on the end of the 7-day period. Are you ready for us to come grab it, or do you need a few more days?`
+      : `Your dumpster rental is coming up on the end of the 7-day period. Are you ready for us to come grab it, or do you need a few more days?`,
 
-  // Reply 1 → schedule pickup
-  // Reply 2 → note extension, daily overage applies
-  // Reply 3 → open live thread
+  extension_ack: (p: { customerName?: string }) =>
+    p.customerName
+      ? `No problem, ${p.customerName.split(" ")[0]}. Just a heads up — after the 7-day rental period there's a $25/day overage. Just text us whenever you're ready for pickup!`
+      : `No problem. Just a heads up — after the 7-day rental period there's a $25/day overage. Just text us whenever you're ready for pickup!`,
 
-  extension_ack: () =>
-    `No problem. Daily overage rate of $25/day applies after day 7. Reply 1 when you're ready for pickup or call (908) 725-0456.`,
+  pickup_confirmed: (p: { date: string; customerName?: string }) =>
+    p.customerName
+      ? `${p.customerName.split(" ")[0]}, your pickup is scheduled for ${p.date}. We'll confirm the evening before. Please make sure we have clear access to the dumpster.`
+      : `Your pickup is scheduled for ${p.date}. We'll confirm the evening before. Please make sure we have clear access to the dumpster.`,
 
-  pickup_confirmed: (p: { date: string }) =>
-    `Metro Waste: Your dumpster pickup is scheduled for ${p.date}. We'll confirm the evening before.`,
+  evening_before_pickup: (p: { customerName?: string }) =>
+    p.customerName
+      ? `Hey ${p.customerName.split(" ")[0]}, just confirming your dumpster pickup is on for tomorrow. Please make sure there's clear access. Thanks!`
+      : `Just confirming your dumpster pickup is on for tomorrow. Please make sure there's clear access. Thanks!`,
 
-  evening_before_pickup: () =>
-    `Metro Waste: Your dumpster pickup is confirmed for tomorrow. Please ensure clear access to the dumpster. Questions? Reply 3 to text us.`,
-
-  pickup_complete: () =>
-    `Metro Waste: Your dumpster has been picked up. You'll receive your invoice shortly. Thank you for choosing Metro Waste!`,
+  pickup_complete: (p: { customerName?: string }) =>
+    p.customerName
+      ? `${p.customerName.split(" ")[0]}, your dumpster has been picked up. You'll receive your invoice shortly. Thanks for choosing Metro Waste!`
+      : `Your dumpster has been picked up. You'll receive your invoice shortly. Thanks for choosing Metro Waste!`,
 
   // ── CUSTOMER TEXTS IN ──
 
   booking_request_start: () =>
-    `Thanks for reaching out to Metro Waste! To get you scheduled, we need:\n1. Delivery address\n2. Preferred date\n3. Dumpster size (10yd $550, 20yd $750, 30yd $850)\n\nReply with this info or call (908) 725-0456.`,
+    `Thanks for reaching out to Metro Waste! To get you set up, I just need a few things — what's the delivery address, what date works for you, and what size are you thinking? We have 10yd ($550), 20yd ($750), and 30yd ($850).`,
 
   pickup_request_ack: () =>
-    `Got it! We are working on getting a truck to you. We will let you know as soon as we get it on the schedule.`,
+    `Got it! We're working on getting a truck out to you. We'll let you know as soon as it's on the schedule.`,
 
   // ── INVOICING ──
 
-  invoice_sent: (p: { number: string; amount: string; link: string }) =>
-    `Metro Waste: Invoice #${p.number} for $${p.amount} has been sent.\nPay online: ${p.link}\nReply 1 to confirm receipt.`,
+  invoice_sent: (p: { number: string; amount: string; link: string; customerName?: string }) =>
+    p.customerName
+      ? `Hey ${p.customerName.split(" ")[0]}, your invoice #${p.number} for $${p.amount} is ready. You can pay online here: ${p.link}`
+      : `Your invoice #${p.number} for $${p.amount} is ready. You can pay online here: ${p.link}`,
 
-  // Reply 1 → logged as receipt confirmed
+  // ── PAYMENT REMINDERS ──
 
-  // ── PAYMENT REMINDERS (escalating) ──
-
-  payment_reminder_30: (p: { number: string; amount: string; link: string }) =>
-    `Friendly reminder: Invoice #${p.number} for $${p.amount} is due. Pay online: ${p.link}`,
+  payment_reminder_30: (p: { number: string; amount: string; link: string; customerName?: string }) =>
+    p.customerName
+      ? `Hey ${p.customerName.split(" ")[0]}, friendly reminder that invoice #${p.number} for $${p.amount} is due. Pay here: ${p.link}`
+      : `Friendly reminder: invoice #${p.number} for $${p.amount} is due. Pay here: ${p.link}`,
 
   payment_reminder_45: (p: { number: string; amount: string; link: string }) =>
-    `Second notice: Invoice #${p.number} for $${p.amount} is now 15 days past due. Please remit payment to avoid late fees. Pay: ${p.link} Per our service agreement, late fees apply after 30 days past due. See metrowasteservice.com/terms`,
+    `Second notice: Invoice #${p.number} for $${p.amount} is now 15 days past due. Please remit payment to avoid late fees per our service agreement (metrowasteservice.com/terms). Pay here: ${p.link}`,
 
   payment_overdue_60: (p: { number: string; fee: string; total: string; link: string }) =>
-    `Invoice #${p.number} is 30 days past due. A 7% late fee of $${p.fee} has been applied. Total now due: $${p.total}. Pay: ${p.link}\nReply 1 - Pay now\nReply 2 - Request payment plan\nReply 3 - Request a callback`,
-
-  // Reply 1 → payment link
-  // Reply 2 → flags for owner to set up payment arrangement
-  // Reply 3 → callback request → routes to boss action center
+    `Invoice #${p.number} is 30 days past due. A 7% late fee of $${p.fee} has been applied per our terms. Total now due: $${p.total}. Pay here: ${p.link} — or text us if you need to discuss a payment arrangement.`,
 
   payment_overdue_80: (p: { number: string; total: string; link: string }) =>
-    `FINAL NOTICE: Invoice #${p.number} is 50 days past due. An additional 10% fee has been applied. Total: $${p.total}. Pay immediately: ${p.link}\nReply 1 - Pay now\nReply 3 - Request a callback`,
+    `FINAL NOTICE: Invoice #${p.number} is 50 days past due. An additional 10% fee has been applied. Total: $${p.total}. Please pay immediately: ${p.link} — or text us to discuss.`,
 
   // ── PAYMENT RECEIVED ──
-  // NOTE: Only sent if paid on time AND not rescheduled by company
+  // Only ask for review if paid on time AND not rescheduled by company
 
-  payment_thank_you: (p: { amount: string; reviewLink: string; eligible: boolean }) =>
-    p.eligible
-      ? `Metro Waste: Payment of $${p.amount} received - thank you! We hope we met your expectations. If you had a great experience, we'd love a review: ${p.reviewLink}`
-      : `Metro Waste: Payment of $${p.amount} received - thank you for your business!`,
+  payment_thank_you: (p: { amount: string; reviewLink: string; eligible: boolean; customerName?: string }) => {
+    const name = p.customerName ? p.customerName.split(" ")[0] : null;
+    if (p.eligible) {
+      return name
+        ? `${name}, payment of $${p.amount} received — thank you! If you had a great experience, we'd really appreciate a review: ${p.reviewLink}`
+        : `Payment of $${p.amount} received — thank you for your business!`;
+    }
+    return name
+      ? `${name}, payment of $${p.amount} received. Thank you!`
+      : `Payment of $${p.amount} received. Thank you for your business!`;
+  },
 
   // ── SCHEDULE CHANGES ──
 
-  reschedule_by_company: (p: { type: string; oldDate: string; newDate: string }) =>
-    `Metro Waste: Your ${p.type} originally planned for ${p.oldDate} has been rescheduled to ${p.newDate}. We apologize for the inconvenience.\nReply 1 - Request a callback\nReply 2 - Request a different date`,
-
-  // Reply 1 → routes to boss
-  // Reply 2 → routes to boss
+  reschedule_by_company: (p: { type: string; oldDate: string; newDate: string; customerName?: string }) =>
+    p.customerName
+      ? `Hey ${p.customerName.split(" ")[0]}, we had to move your ${p.type} from ${p.oldDate} to ${p.newDate}. We apologize for the inconvenience. If that doesn't work for you, just text us back and we'll figure something out.`
+      : `We had to move your ${p.type} from ${p.oldDate} to ${p.newDate}. We apologize for the inconvenience. If that doesn't work, just text us back and we'll figure something out.`,
 
   severe_weather: (p: { type: string }) =>
     `Metro Waste: Due to severe weather, our operations are limited. Your ${p.type} may be rescheduled. We'll confirm your new date as soon as conditions allow. Stay safe!`,
@@ -121,48 +137,7 @@ export const SMS_TEMPLATES: Record<TemplateType, (...args: any[]) => string> = {
   // ── SPECIALS ──
 
   special_offer: (p: { customerName: string; offerText: string; code: string; expiresDate: string }) =>
-    `🎉 ${p.customerName}, as a valued Metro Waste customer: ${p.offerText}. Use code ${p.code} by ${p.expiresDate}. Reply YES to claim or STOP to opt out.`,
-
-  // Reply YES → logged, code activated
-};
-
-// ─── Reply Code Mapping ───
-// Maps template types to what each reply code means
-
-export const REPLY_ACTIONS: Record<string, Record<string, { action: string; description: string }>> = {
-  pickup_approaching: {
-    "1": { action: "schedule_pickup", description: "Customer ready for pickup" },
-    "2": { action: "extend_rental", description: "Customer needs more time (overage applies)" },
-    "3": { action: "open_thread", description: "Customer wants to text" },
-  },
-  invoice_sent: {
-    "1": { action: "receipt_confirmed", description: "Customer confirmed receipt" },
-  },
-  payment_overdue_60: {
-    "1": { action: "send_payment_link", description: "Customer wants to pay" },
-    "2": { action: "flag_payment_plan", description: "Customer requesting payment plan" },
-    "3": { action: "request_callback", description: "Customer wants a callback about overdue invoice" },
-  },
-  payment_overdue_80: {
-    "1": { action: "send_payment_link", description: "Customer wants to pay" },
-    "3": { action: "request_callback", description: "Customer wants a callback about final notice" },
-  },
-  reschedule_by_company: {
-    "1": { action: "request_callback", description: "Customer wants a callback" },
-    "2": { action: "request_new_date", description: "Customer wants a different date" },
-  },
-  evening_before_delivery: {
-    "3": { action: "open_thread", description: "Customer has questions" },
-  },
-  delivery_complete: {
-    "3": { action: "open_thread", description: "Customer has questions" },
-  },
-  evening_before_pickup: {
-    "3": { action: "open_thread", description: "Customer has questions" },
-  },
-  special_offer: {
-    "YES": { action: "claim_offer", description: "Customer claimed offer" },
-  },
+    `Hey ${p.customerName.split(" ")[0]}! As a valued Metro Waste customer, we wanted to offer you ${p.offerText}. Use code ${p.code} — good through ${p.expiresDate}. Just mention it when you book!`,
 };
 
 // ─── Review Eligibility ───
@@ -171,7 +146,6 @@ export function isEligibleForReview(job: {
   hadLateFees?: boolean;
   wasRescheduledByCompany?: boolean;
 }): boolean {
-  // Don't ask for review if late fees were applied or we rescheduled on them
   if (job.hadLateFees) return false;
   if (job.wasRescheduledByCompany) return false;
   return true;
@@ -180,10 +154,14 @@ export function isEligibleForReview(job: {
 // ─── Coupon Code Generator ───
 
 export function generateCouponCode(prefix: string = "MW"): string {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no ambiguous chars
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let code = prefix;
   for (let i = 0; i < 6; i++) {
     code += chars[Math.floor(Math.random() * chars.length)];
   }
   return code;
 }
+
+// ─── Reply Actions (kept for backward compat but not used in conversational mode) ───
+
+export const REPLY_ACTIONS: Record<string, Record<string, { action: string; description: string }>> = {};
