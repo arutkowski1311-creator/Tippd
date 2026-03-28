@@ -330,8 +330,9 @@ export default function DriverRoute() {
           <p className="text-sm text-gray-500 mb-2">
             No segments or jobs have been assigned for today. Check back later or contact dispatch.
           </p>
-          {error && <p className="text-xs text-red-500">{error}</p>}
-          {trucks.length === 0 && <p className="text-xs text-amber-500">No trucks loaded — possible auth issue</p>}
+          {error && <p className="text-xs text-red-500">Error: {error}</p>}
+          <p className="text-xs text-gray-400 mt-1">Trucks: {trucks.length} | Selected: {selectedTruck ? 'yes' : 'no'} | Segments: {segments.length}</p>
+          {trucks.length === 0 && <p className="text-xs text-amber-500">No trucks loaded — auth or API issue</p>}
           <button onClick={() => loadRoute()} className="mt-3 px-4 py-2 bg-tippd-blue text-white rounded-lg text-sm font-semibold">
             Retry
           </button>
