@@ -663,8 +663,8 @@ function TireCard({
         {condition}
       </span>
 
-      {milesOnTire !== null && milesOnTire > 0 && (
-        <p className="text-[10px] text-tippd-ash mt-1">{Math.round(milesOnTire / 1000)}k mi</p>
+      {milesOnTire != null && milesOnTire > 0 && (
+        <p className="text-[10px] text-tippd-ash mt-1">{Math.round((milesOnTire as number) / 1000)}k mi</p>
       )}
     </button>
   );

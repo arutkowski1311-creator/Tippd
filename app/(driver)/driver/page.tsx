@@ -221,6 +221,7 @@ export default function DriverRoute() {
           setTrucks(activeTrucks);
           if (activeTrucks.length > 0) {
             setSelectedTruck(activeTrucks[0].id);
+            localStorage.setItem("selectedTruckId", activeTrucks[0].id);
           }
         }
       } catch {}
@@ -346,7 +347,7 @@ export default function DriverRoute() {
             {trucks.map((t) => (
               <button
                 key={t.id}
-                onClick={() => { setSelectedTruck(t.id); setTimeout(loadRoute, 300); }}
+                onClick={() => { setSelectedTruck(t.id); localStorage.setItem("selectedTruckId", t.id); setTimeout(loadRoute, 300); }}
                 className={cn(
                   "flex-1 py-2 px-3 rounded-xl text-sm font-semibold transition-colors text-center",
                   selectedTruck === t.id
@@ -406,14 +407,40 @@ export default function DriverRoute() {
 
           // Build the href for tappable segments
           const isJobSegment = seg.type === "drop" || seg.type === "pickup";
-          const isTappable = !isCompleted && isJobSegment && seg.job_id;
-          const href = isTappable ? `/driver/job/${seg.job_id}` : null;
+          const isDumpSegment = seg.type === "dump";
+          const isYardSegment = seg.type === "yard_return" || seg.type === "yard_depart";
+          const isLunchSegment = seg.type === "lunch";
+          const isTappable = !isCompleted && (
+            (isJobSegment && seg.job_id) || isDumpSegment || isYardSegment || isLunchSegment
+          );
+          const href = isJobSegment && seg.job_id ? `/driver/job/${seg.job_id}` : null;
 
           return (
             <div
               key={seg.id}
-              onClick={() => {
-                if (href) router.push(href);
+              onClick={async () => {
+                if (href) {
+                  router.push(href);
+                } else if (isTappable && !isCompleted) {
+                  // Inline completion for non-job segments (dump, yard, lunch)
+                  if (isDumpSegment) {
+                    router.push(`/driver/job/${seg.id}?type=dump&job_id=${seg.job_id || ''}`);
+                  } else if (isYardSegment || isLunchSegment) {
+                    // Quick complete — just mark done
+                    try {
+                      const res = await fetch(`/api/driver/segment/${seg.id}/complete`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ type: seg.type }),
+                      });
+                      if (res.ok) {
+                        loadRoute(selectedTruck);
+                      }
+                    } catch (e) {
+                      console.error('Failed to complete segment:', e);
+                    }
+                  }
+                }
               }}
               className={cn(
                 "rounded-xl border-2 p-4 transition-all",

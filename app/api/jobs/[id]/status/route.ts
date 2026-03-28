@@ -65,7 +65,7 @@ export async function POST(
   }
 
   // Enforce state machine
-  const validation = validateJobTransition(currentStatus, newStatus, {
+  const validation = validateJobTransition(currentStatus, newStatus as JobStatus, {
     hasDropPhoto: (job.photos_drop as string[])?.length > 0,
     hasPickupPhoto: (job.photos_pickup as string[])?.length > 0,
     hasWeight: job.weight_lbs != null,

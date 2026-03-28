@@ -73,6 +73,7 @@ interface SegmentData {
   next_segment?: {
     id: string;
     type: string;
+    job_id?: string;
     customer_name?: string;
     box_size?: string;
     job_type?: string;
@@ -123,7 +124,10 @@ export default function DriverJobPage() {
   const loadSegment = useCallback(async () => {
     try {
       // Load from the route API and find this segment
-      const res = await fetch("/api/driver/route");
+      // Try to get truck_id from localStorage (set by driver page)
+      const truckId = typeof window !== "undefined" ? localStorage.getItem("selectedTruckId") : null;
+      const url = truckId ? `/api/driver/route?truck_id=${truckId}` : "/api/driver/route";
+      const res = await fetch(url);
       if (!res.ok) {
         if (res.status === 401) {
           router.push("/driver/login");
@@ -227,7 +231,44 @@ export default function DriverJobPage() {
     setProcessing(true);
     setActionError(null);
     try {
-      // Always use the job status API — it's the most reliable path
+      // Dump segments don't change job status — use segment complete API
+      if (action === "dump_arrived" || action === "dump_complete") {
+        const res = await fetch(`/api/driver/segment/${realSegmentId}/complete`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: "dump",
+            action,
+            weight: weight ? parseInt(weight) : undefined,
+            job_id: segment?.job_id,
+            photos: photos.length > 0 ? photos : undefined,
+          }),
+        });
+        const data = await res.json();
+        setProcessing(false);
+        return data?.error ? { ok: false, error: data.error } : { ok: true };
+      }
+
+      // Pull from service — special handling
+      if (action === "pull_from_service") {
+        const jobId = segment?.job_id || segmentId;
+        const res = await fetch(`/api/driver/segment/${realSegmentId}/complete`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: "pull_from_service",
+            action,
+            job_id: jobId,
+            notes: extra?.notes || notes || undefined,
+            condition: "F",
+          }),
+        });
+        const data = await res.json();
+        setProcessing(false);
+        return data?.error ? { ok: false, error: data.error } : { ok: true };
+      }
+
+      // Regular job actions — use the job status API
       const jobId = segment?.job_id || segmentId;
 
       const res = await fetch(`/api/jobs/${jobId}/status`, {
@@ -412,11 +453,13 @@ export default function DriverJobPage() {
   function goToNextSegment() {
     if (segment?.next_segment) {
       const next = segment.next_segment;
-      // Only navigate to job detail for drop/pickup segments with a job_id
       if ((next.type === "drop" || next.type === "pickup") && next.job_id) {
         router.push(`/driver/job/${next.job_id}`);
+      } else if (next.type === "dump") {
+        // Navigate to dump segment page
+        router.push(`/driver/job/${next.id}`);
       } else {
-        // For dump, yard, lunch segments — go back to route list
+        // For yard, lunch segments — go back to route list to tap through
         router.push("/driver");
       }
     } else {
