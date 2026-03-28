@@ -364,6 +364,26 @@ export default function DispatchPage() {
     loadData();
   }, [loadData, date]);
 
+  // Auto-select first truck
+  useEffect(() => {
+    if (trucks.length > 0 && !selectedTruck) {
+      setSelectedTruck(trucks[0].id);
+    }
+  }, [trucks, selectedTruck]);
+
+  /* ─── Derived Data ─── */
+
+  // Jobs for the selected truck, ordered
+  const truckJobs = useMemo(() => {
+    const tj = draftJobs.filter((j) => j.truck_id === selectedTruck);
+    // Sort by route_order if available, otherwise by original array position
+    return tj.sort((a, b) => {
+      const aOrder = a.route_order ?? 9999;
+      const bOrder = b.route_order ?? 9999;
+      return aOrder - bOrder;
+    });
+  }, [draftJobs, selectedTruck]);
+
   // Build full segments when truck jobs change
   useEffect(() => {
     if (truckJobs.length === 0) {
@@ -398,26 +418,6 @@ export default function DispatchPage() {
       setFullSegments([]);
     }
   }, [truckJobs, transferStations]);
-
-  // Auto-select first truck
-  useEffect(() => {
-    if (trucks.length > 0 && !selectedTruck) {
-      setSelectedTruck(trucks[0].id);
-    }
-  }, [trucks, selectedTruck]);
-
-  /* ─── Derived Data ─── */
-
-  // Jobs for the selected truck, ordered
-  const truckJobs = useMemo(() => {
-    const tj = draftJobs.filter((j) => j.truck_id === selectedTruck);
-    // Sort by route_order if available, otherwise by original array position
-    return tj.sort((a, b) => {
-      const aOrder = a.route_order ?? 9999;
-      const bOrder = b.route_order ?? 9999;
-      return aOrder - bOrder;
-    });
-  }, [draftJobs, selectedTruck]);
 
   // Route miles for each truck
   const truckMilesMap = useMemo(() => {
