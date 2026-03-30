@@ -1,4 +1,5 @@
 import { getAuthContext, json, error } from "@/lib/api-helpers";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { z } from "zod";
 
 const brandSchema = z.object({
@@ -22,13 +23,16 @@ export async function PATCH(request: Request) {
   const parsed = brandSchema.safeParse(body);
   if (!parsed.success) return error(parsed.error.message);
 
-  const { data, error: dbError } = await ctx.supabase
+  // Use admin client to bypass RLS — auth already verified above
+  const admin = createAdminClient();
+  const { data, error: dbError } = await admin
     .from("operators")
     .update(parsed.data)
     .eq("id", ctx.operatorId)
     .select()
-    .single();
+    .maybeSingle();
 
   if (dbError) return error(dbError.message);
+  if (!data) return error("Operator not found", 404);
   return json(data);
 }
