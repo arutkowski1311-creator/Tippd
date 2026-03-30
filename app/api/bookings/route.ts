@@ -15,6 +15,7 @@ const bookingSchema = z.object({
   requested_drop_start: z.string(),
   requested_drop_end: z.string().optional(),
   customer_notes: z.string().optional(),
+  sms_consent: z.boolean().optional().default(true),
 });
 
 // Public — no auth required
@@ -63,10 +64,24 @@ export async function POST(request: Request) {
         phone: parsed.data.phone,
         email: parsed.data.email || null,
         type: "residential",
-      })
+        sms_consent: parsed.data.sms_consent ?? true,
+        sms_consent_at: new Date().toISOString(),
+        sms_consent_source: "booking_form",
+      } as any)
       .select()
       .single();
     customer = newCustomer;
+  } else if (parsed.data.sms_consent) {
+    // Update consent if customer already exists (re-booking)
+    await admin
+      .from("customers")
+      .update({
+        sms_consent: true,
+        sms_consent_at: new Date().toISOString(),
+        sms_consent_source: "booking_form",
+        sms_opted_out_at: null,
+      } as any)
+      .eq("id", (customer as any).id);
   }
 
   if (!customer) return error("Failed to create customer", 500);

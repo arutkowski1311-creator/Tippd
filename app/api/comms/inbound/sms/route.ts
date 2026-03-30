@@ -170,22 +170,63 @@ export async function POST(request: NextRequest) {
 
   if (!from || !body) return error("Missing From or Body", 400);
 
-  // Handle STOP/opt-out (Twilio handles at carrier level, just log)
-  if (body.toUpperCase() === "STOP") {
-    return twiml();
-  }
-
   const admin = createAdminClient();
 
   // 1. Find operator by Twilio number
   const { data: operator } = await admin
     .from("operators")
-    .select("id, name, owner_id")
+    .select("id, name, phone, email")
     .eq("twilio_number", to)
     .single();
 
   if (!operator) return error("Operator not found", 404);
   const operatorId = operator.id as string;
+
+  // Handle STOP — mark customer opted out, Twilio handles carrier-level block
+  if (body.toUpperCase() === "STOP") {
+    const customer = await findCustomer(admin, operatorId, from);
+    if (customer) {
+      await admin
+        .from("customers")
+        .update({ sms_opted_out_at: new Date().toISOString() } as any)
+        .eq("id", customer.id);
+    }
+    await admin.from("communications").insert({
+      operator_id: operatorId,
+      customer_id: customer?.id || null,
+      direction: "inbound",
+      channel: "sms",
+      from_number: normalizePhone(from),
+      to_number: to,
+      raw_content: body,
+      intent: "other",
+      auto_responded: false,
+    } as any);
+    return twiml();
+  }
+
+  // Handle HELP
+  if (body.toUpperCase() === "HELP") {
+    const helpMsg = `${operator.name} help: For service questions call ${operator.phone || to} or email ${operator.email || "us"}. To unsubscribe reply STOP. Powered by Tippd.`;
+    try {
+      await sendSMS({ to: from, body: helpMsg, from: to });
+    } catch (err) {
+      console.error("[inbound-sms] Failed to send HELP response:", err);
+    }
+    await admin.from("communications").insert({
+      operator_id: operatorId,
+      direction: "inbound",
+      channel: "sms",
+      from_number: normalizePhone(from),
+      to_number: to,
+      raw_content: body,
+      intent: "other",
+      auto_responded: true,
+      response_content: helpMsg,
+      responded_at: new Date().toISOString(),
+    } as any);
+    return twiml();
+  }
 
   // 2. Find customer
   const customer = await findCustomer(admin, operatorId, from);

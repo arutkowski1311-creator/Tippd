@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { ArrowLeft, ArrowRight, Check, MessageSquare, AlertTriangle } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, MessageSquare, AlertTriangle, Loader2 } from "lucide-react";
 import { DUMPSTER_SIZE_INFO, OVERAGE_PER_TON } from "@/lib/constants";
 import { AddressInput } from "@/components/ui/address-input";
 import type { DumpsterSize } from "@/types/dumpster";
@@ -24,7 +24,9 @@ export default function BookingPage() {
 
 function BookingWizard() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const initialSize = searchParams.get("size") as DumpsterSize | null;
+  const operatorId = searchParams.get("operator_id") || process.env.NEXT_PUBLIC_OPERATOR_ID || "";
   const [step, setStep] = useState<WizardStep>(initialSize ? "address" : "size");
   const [size, setSize] = useState<DumpsterSize>(initialSize || "10yd");
   const [address, setAddress] = useState("");
@@ -37,6 +39,8 @@ function BookingWizard() {
   const [email, setEmail] = useState("");
   const [jobType, setJobType] = useState<JobType>("residential");
   const [notes, setNotes] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const currentIndex = STEPS.indexOf(step);
   const sizeInfo = DUMPSTER_SIZE_INFO[size];
@@ -255,13 +259,24 @@ function BookingWizard() {
               placeholder="Full name"
               className="w-full h-11 px-3 rounded-md border border-gray-300 text-sm"
             />
-            <input
-              type="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="Phone number"
-              className="w-full h-11 px-3 rounded-md border border-gray-300 text-sm"
-            />
+            <div>
+              <input
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="Phone number"
+                className="w-full h-11 px-3 rounded-md border border-gray-300 text-sm"
+              />
+              <p className="mt-1.5 text-xs text-gray-500 leading-relaxed">
+                By providing your phone number, you agree to receive automated SMS messages about
+                your dumpster rental, including booking confirmations, delivery windows, driver
+                updates, and invoices. Reply STOP to opt out at any time. Msg &amp; data rates may
+                apply.{" "}
+                <a href="/privacy" className="underline hover:text-gray-700">Privacy Policy</a>
+                {" "}·{" "}
+                <a href="/terms" className="underline hover:text-gray-700">Terms</a>
+              </p>
+            </div>
             <input
               type="email"
               value={email}
@@ -340,18 +355,68 @@ function BookingWizard() {
             </div>
           </div>
 
+          {submitError && (
+            <div className="mt-4 p-3 rounded-md bg-red-50 border border-red-200 text-sm text-red-700">
+              {submitError}
+            </div>
+          )}
+
           <div className="flex gap-3 mt-6">
-            <button onClick={back} className="px-4 py-3 border border-gray-300 rounded-md text-sm font-medium">
+            <button onClick={back} disabled={submitting} className="px-4 py-3 border border-gray-300 rounded-md text-sm font-medium disabled:opacity-40">
               <ArrowLeft className="w-4 h-4" />
             </button>
             <button
-              onClick={() => {
-                // TODO: POST to /api/bookings then redirect to Stripe Checkout
-                window.location.href = "/book/confirm";
+              disabled={submitting}
+              onClick={async () => {
+                if (!operatorId) {
+                  setSubmitError("Booking configuration error. Please contact us directly.");
+                  return;
+                }
+                setSubmitting(true);
+                setSubmitError(null);
+                try {
+                  // Build drop window based on time preference
+                  const dropStart = new Date(`${date}T${time === "afternoon" ? "12:00" : "07:00"}:00`);
+                  const dropEnd = new Date(`${date}T${time === "morning" ? "12:00" : "17:00"}:00`);
+
+                  const res = await fetch("/api/bookings", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      operator_id: operatorId,
+                      name,
+                      phone,
+                      email: email || undefined,
+                      drop_address: address,
+                      drop_lat: dropLat ?? undefined,
+                      drop_lng: dropLng ?? undefined,
+                      size,
+                      job_type: jobType,
+                      requested_drop_start: dropStart.toISOString(),
+                      requested_drop_end: dropEnd.toISOString(),
+                      customer_notes: notes || undefined,
+                      sms_consent: true,
+                    }),
+                  });
+
+                  if (!res.ok) {
+                    const data = await res.json().catch(() => ({}));
+                    throw new Error(data.error || "Booking failed. Please try again.");
+                  }
+
+                  router.push("/book/confirm");
+                } catch (err: unknown) {
+                  setSubmitError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+                  setSubmitting(false);
+                }
               }}
-              className="flex-1 py-3 bg-tippd-blue text-white rounded-md font-semibold hover:opacity-90"
+              className="flex-1 py-3 bg-tippd-blue text-white rounded-md font-semibold hover:opacity-90 disabled:opacity-60 flex items-center justify-center gap-2"
             >
-              Confirm &amp; Pay ${price}
+              {submitting ? (
+                <><Loader2 className="w-4 h-4 animate-spin" /> Submitting...</>
+              ) : (
+                <>Confirm &amp; Pay ${price}</>
+              )}
             </button>
           </div>
         </div>

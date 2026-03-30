@@ -54,7 +54,7 @@ export default function InsightsPage() {
   async function markActioned(id: string) {
     const supabase = createClient();
     await supabase.from("insights").update({ action_taken: true }).eq("id", id);
-    setActionedIds((prev) => new Set([...prev, id]));
+    setActionedIds((prev) => { const next = new Set(prev); next.add(id); return next; });
   }
 
   const totalImpact = insights.reduce((sum, i) => sum + (i.dollar_impact || 0), 0);

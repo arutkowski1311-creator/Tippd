@@ -108,8 +108,18 @@ export default function TermsPage() {
         </section>
 
         <section>
-          <h2 className="text-lg font-bold text-gray-900 mb-2">11. Communication Consent</h2>
-          <p>By booking a dumpster rental, you consent to receive SMS text messages from Metro Waste regarding your order, including delivery confirmations, pickup scheduling, invoices, and service updates. Message and data rates may apply. Reply STOP at any time to opt out of text messages.</p>
+          <h2 className="text-lg font-bold text-gray-900 mb-2">11. SMS Communications &amp; Consent</h2>
+          <p>By providing your phone number and booking a service, you expressly consent to receive automated SMS text messages related to your service. These include booking confirmations, scheduling updates, driver ETAs, invoices, and payment reminders.</p>
+          <ul className="list-disc pl-5 space-y-1 mt-2">
+            <li>Reply <strong>STOP</strong> to opt out of SMS at any time</li>
+            <li>Reply <strong>HELP</strong> for assistance</li>
+            <li>Opting out may affect our ability to provide time-sensitive service updates</li>
+            <li>Standard message and data rates may apply</li>
+          </ul>
+          <p className="mt-2 text-sm text-gray-600">
+            For full details on how we handle your data, see our{" "}
+            <a href="/privacy" className="text-tippd-blue hover:underline">Privacy Policy</a>.
+          </p>
         </section>
 
         <section>
