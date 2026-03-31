@@ -18,6 +18,8 @@ import {
   Recycle,
   Navigation,
   Loader2,
+  AlertTriangle,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -181,6 +183,17 @@ export default function DriverRoute() {
   const [trucks, setTrucks] = useState<Array<{ id: string; name: string; plate: string }>>([]);
   const [selectedTruck, setSelectedTruck] = useState<string | null>(null);
   const [showTruckPicker, setShowTruckPicker] = useState(false);
+
+  // Skip detection state
+  const [skipWarning, setSkipWarning] = useState<{
+    tappedSeg: RouteSegmentRow;
+    skippedSegs: RouteSegmentRow[];
+    pendingHref: string | null;
+    pendingAction: (() => void) | null;
+  } | null>(null);
+  const [skipReason, setSkipReason] = useState("");
+  const [skipSubmitting, setSkipSubmitting] = useState(false);
+
   const gpsRef = useRef<number | null>(null);
   const lastGpsUpdate = useRef<number>(0);
 
@@ -277,7 +290,93 @@ export default function DriverRoute() {
     };
   }, [segments]);
 
-  // Computed values
+  // ─── Skip detection ───
+
+  /**
+   * Call this instead of navigating directly to a segment.
+   * Checks if there are incomplete stops before the tapped segment.
+   * If so, shows a warning modal requiring a reason before proceeding.
+   */
+  function tryNavigateToSegment(seg: RouteSegmentRow, href: string | null, inlineAction?: () => void) {
+    // Find stops that are BEFORE this segment in sequence and still pending/active
+    // Only count job stops (drop/pickup) — dump/yard/lunch don't count as "skippable"
+    const skippedBefore = segments.filter(
+      (s) =>
+        s.sequence_number < seg.sequence_number &&
+        (s.type === "drop" || s.type === "pickup") &&
+        s.status !== "completed" &&
+        s.status !== "skipped" &&
+        s.id !== seg.id
+    );
+
+    if (skippedBefore.length === 0) {
+      // No skipped stops — proceed normally
+      if (href) router.push(href);
+      else if (inlineAction) inlineAction();
+      return;
+    }
+
+    // Show skip warning modal
+    setSkipWarning({
+      tappedSeg: seg,
+      skippedSegs: skippedBefore,
+      pendingHref: href,
+      pendingAction: inlineAction || null,
+    });
+    setSkipReason("");
+  }
+
+  async function confirmSkip() {
+    if (!skipWarning || !skipReason.trim()) return;
+    setSkipSubmitting(true);
+
+    try {
+      const { tappedSeg, skippedSegs, pendingHref, pendingAction } = skipWarning;
+
+      // Calculate rough cascade time impact
+      const skippedMinutes = skippedSegs.reduce(
+        (sum, s) => sum + (s.planned_total_minutes || 0),
+        0
+      );
+      const skippedNames = skippedSegs.map((s) => s.customer_name || s.label).join(", ");
+
+      // Post route_conflict action item for owner
+      await fetch("/api/driver/flag", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          exception_type: "other",
+          title: `⚠️ Out-of-order stop — skipped ahead to ${tappedSeg.customer_name || tappedSeg.label}`,
+          description: [
+            `Skipped: ${skippedNames}`,
+            `Reason: ${skipReason.trim()}`,
+            skippedMinutes > 0
+              ? `Estimated cascade delay: ~${Math.round(skippedMinutes)} min across ${skippedSegs.length} stop${skippedSegs.length > 1 ? "s" : ""}`
+              : null,
+          ]
+            .filter(Boolean)
+            .join("\n"),
+          job_id: tappedSeg.job_id || undefined,
+          segment_id: tappedSeg.id,
+        }),
+      });
+
+      // Navigate
+      setSkipWarning(null);
+      setSkipReason("");
+      if (pendingHref) router.push(pendingHref);
+      else if (pendingAction) pendingAction();
+    } catch {
+      // Non-fatal — still navigate
+      setSkipWarning(null);
+      if (skipWarning?.pendingHref) router.push(skipWarning.pendingHref);
+      else if (skipWarning?.pendingAction) skipWarning.pendingAction();
+    } finally {
+      setSkipSubmitting(false);
+    }
+  }
+
+  // ─── Computed values ───
   const completed = segments.filter((s) => s.status === "completed").length;
   const total = segments.length;
   const totalMiles = segments.reduce((s, seg) => s + (seg.planned_drive_miles || 0), 0);
@@ -341,8 +440,111 @@ export default function DriverRoute() {
     );
   }
 
+  // ─── Render ───
+
+  const SKIP_REASONS = [
+    "Customer not ready",
+    "Traffic / road issue",
+    "More efficient order",
+    "Dispatcher request",
+    "Wrong address — need to confirm",
+    "Other",
+  ];
+
   return (
     <div className="p-4 pb-24">
+
+      {/* ── Skip-ahead warning modal ── */}
+      {skipWarning && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-end justify-center p-3">
+          <div className="w-full max-w-sm bg-white rounded-2xl shadow-2xl overflow-hidden">
+            {/* Header */}
+            <div className="bg-amber-50 border-b border-amber-200 px-5 py-4 flex items-start gap-3">
+              <div className="w-9 h-9 rounded-full bg-amber-100 flex items-center justify-center shrink-0 mt-0.5">
+                <AlertTriangle className="w-5 h-5 text-amber-600" />
+              </div>
+              <div className="flex-1">
+                <p className="font-bold text-gray-900 text-base leading-tight">Skipping ahead?</p>
+                <p className="text-xs text-gray-600 mt-0.5">
+                  {skipWarning.skippedSegs.length === 1
+                    ? `1 stop before this one hasn't been completed.`
+                    : `${skipWarning.skippedSegs.length} stops before this one haven't been completed.`}
+                </p>
+              </div>
+              <button
+                onClick={() => { setSkipWarning(null); setSkipReason(""); }}
+                className="w-7 h-7 flex items-center justify-center rounded-full bg-white/80 active:bg-gray-100 mt-0.5"
+              >
+                <X className="w-4 h-4 text-gray-500" />
+              </button>
+            </div>
+
+            <div className="px-5 pt-4 pb-5">
+              {/* Skipped stop list */}
+              <div className="mb-4">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                  Stops being skipped:
+                </p>
+                <div className="space-y-1.5">
+                  {skipWarning.skippedSegs.map((s) => (
+                    <div key={s.id} className="flex items-center gap-2 bg-amber-50 rounded-lg px-3 py-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+                      <span className="text-sm font-medium text-gray-800 flex-1 truncate">
+                        {s.customer_name || s.label}
+                      </span>
+                      <span className="text-xs text-gray-400 shrink-0">
+                        {s.type === "drop" ? "Drop" : "Pickup"}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                {skipWarning.skippedSegs.reduce((sum, s) => sum + (s.planned_total_minutes || 0), 0) > 0 && (
+                  <p className="text-xs text-amber-700 mt-2 font-medium">
+                    ⏱ ~{Math.round(skipWarning.skippedSegs.reduce((sum, s) => sum + (s.planned_total_minutes || 0), 0))} min of schedule disruption
+                  </p>
+                )}
+              </div>
+
+              {/* Reason selection */}
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                Why are you skipping ahead?
+              </p>
+              <div className="grid grid-cols-2 gap-2 mb-4">
+                {SKIP_REASONS.map((r) => (
+                  <button
+                    key={r}
+                    onClick={() => setSkipReason(r)}
+                    className={cn(
+                      "py-2.5 px-3 rounded-xl border-2 text-xs font-semibold text-left leading-tight transition-all active:scale-95",
+                      skipReason === r
+                        ? "border-amber-500 bg-amber-50 text-amber-800"
+                        : "border-gray-200 bg-white text-gray-700 active:bg-gray-50"
+                    )}
+                  >
+                    {r}
+                  </button>
+                ))}
+              </div>
+
+              {/* Action buttons */}
+              <button
+                onClick={confirmSkip}
+                disabled={!skipReason || skipSubmitting}
+                className="w-full py-3.5 bg-amber-500 text-white rounded-xl font-bold text-sm active:opacity-80 disabled:opacity-40 mb-2"
+              >
+                {skipSubmitting ? "Logging..." : `Proceed to ${skipWarning.tappedSeg.customer_name || skipWarning.tappedSeg.label}`}
+              </button>
+              <button
+                onClick={() => { setSkipWarning(null); setSkipReason(""); }}
+                className="w-full py-3 border-2 border-gray-200 text-gray-600 rounded-xl font-medium text-sm active:bg-gray-50"
+              >
+                Go Back — Follow Route Order
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Truck Picker */}
       {trucks.length > 0 && (
         <div className="flex items-center gap-2 mb-4">
@@ -423,28 +625,23 @@ export default function DriverRoute() {
           return (
             <div
               key={seg.id}
-              onClick={async () => {
+              onClick={() => {
+                if (!isTappable || isCompleted) return;
+
                 if (href) {
-                  router.push(href);
-                } else if (isTappable && !isCompleted) {
-                  // Inline completion for non-job segments (dump, yard, lunch)
-                  if (isDumpSegment) {
-                    router.push(`/driver/job/${seg.id}?type=dump&job_id=${seg.job_id || ''}`);
-                  } else if (isYardSegment || isLunchSegment) {
-                    // Quick complete — just mark done
-                    try {
-                      const res = await fetch(`/api/driver/segment/${seg.id}/complete`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ type: seg.type }),
-                      });
-                      if (res.ok) {
-                        loadRoute(selectedTruck);
-                      }
-                    } catch (e) {
-                      console.error('Failed to complete segment:', e);
-                    }
-                  }
+                  // Job stop — check skip order first
+                  tryNavigateToSegment(seg, href, undefined);
+                } else if (isDumpSegment) {
+                  router.push(`/driver/job/${seg.id}?type=dump&job_id=${seg.job_id || ''}`);
+                } else if (isYardSegment || isLunchSegment) {
+                  // Quick complete — just mark done (no skip check needed for non-customer stops)
+                  fetch(`/api/driver/segment/${seg.id}/complete`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ type: seg.type }),
+                  })
+                    .then((res) => { if (res.ok) loadRoute(selectedTruck); })
+                    .catch((e) => console.error('Failed to complete segment:', e));
                 }
               }}
               className={cn(
