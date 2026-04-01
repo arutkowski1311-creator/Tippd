@@ -14,8 +14,8 @@ import { cn } from "@/lib/utils";
 
 const COACH_MODES: { value: CoachMode; title: string; description: string }[] = [
   {
-    value: "fairness",
-    title: "Fairness First",
+    value: "development",
+    title: "Development",
     description: "Prioritize equal playing time and position variety for all players.",
   },
   {
@@ -85,8 +85,8 @@ export default function NewGamePage() {
       toast.error("Opponent name is required");
       return;
     }
-    if (selectedPlayerIds.size < 10) {
-      toast.error("Select at least 10 players");
+    if (selectedPlayerIds.size < 7) {
+      toast.error("Select at least 7 players");
       return;
     }
 
@@ -411,7 +411,7 @@ export default function NewGamePage() {
       {/* Submit */}
       <Button
         onClick={handleSubmit}
-        disabled={submitting || !opponentName.trim() || selectedPlayerIds.size < 10}
+        disabled={submitting || !opponentName.trim() || selectedPlayerIds.size < 7}
         className="w-full h-12 text-base"
       >
         {submitting ? "Creating..." : "Create Game & Generate Lineup"}
