@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { getSession, ensureUserTeam } from "@/lib/auth";
+import { getSession, ensureUserTeam, isCoachRole } from "@/lib/auth";
 
-async function getTeamId(): Promise<string> {
+async function getTeamContext() {
   const session = await getSession();
   if (session) {
     const membership = await ensureUserTeam(session.userId);
-    return membership.team.id;
+    return { teamId: membership.team.id, role: membership.role };
   }
-  return "default-team"; // fallback for unauthenticated access during MVP
+  return { teamId: "default-team", role: "member" };
 }
 
 export async function GET(
@@ -17,7 +17,7 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const teamId = await getTeamId();
+    const { teamId, role } = await getTeamContext();
 
     const player = await prisma.player.findFirst({
       where: { id, teamId },
@@ -28,6 +28,17 @@ export async function GET(
         { error: "Player not found" },
         { status: 404 }
       );
+    }
+
+    // Strip ratings for non-coaches
+    if (!isCoachRole(role)) {
+      return NextResponse.json({
+        ...player,
+        fieldingOverall: 0,
+        catching: 0,
+        throwing: 0,
+        battingOverall: 0,
+      });
     }
 
     return NextResponse.json(player);
@@ -47,7 +58,14 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await request.json();
-    const teamId = await getTeamId();
+    const { teamId, role } = await getTeamContext();
+
+    if (!isCoachRole(role)) {
+      return NextResponse.json(
+        { error: "Only coaches can edit players" },
+        { status: 403 }
+      );
+    }
 
     const existing = await prisma.player.findFirst({
       where: { id, teamId },
@@ -91,7 +109,14 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
-    const teamId = await getTeamId();
+    const { teamId, role } = await getTeamContext();
+
+    if (!isCoachRole(role)) {
+      return NextResponse.json(
+        { error: "Only coaches can remove players" },
+        { status: 403 }
+      );
+    }
 
     const existing = await prisma.player.findFirst({
       where: { id, teamId },

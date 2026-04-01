@@ -16,6 +16,7 @@ interface PlayerCardProps {
   };
   onEdit?: (player: PlayerCardProps["player"]) => void;
   compact?: boolean;
+  showRatings?: boolean;
 }
 
 function RatingDot({ value, label }: { value: number; label?: string }) {
@@ -44,7 +45,7 @@ function RatingDot({ value, label }: { value: number; label?: string }) {
   );
 }
 
-export function PlayerCard({ player, onEdit, compact = false }: PlayerCardProps) {
+export function PlayerCard({ player, onEdit, compact = false, showRatings = true }: PlayerCardProps) {
   const age = playerAge(player.dob);
   const name = playerFullName(player.firstName, player.lastName);
 
@@ -59,12 +60,14 @@ export function PlayerCard({ player, onEdit, compact = false }: PlayerCardProps)
           <span className="font-medium truncate block text-white">{name}</span>
           <span className="text-xs text-gold/50">Age {age}</span>
         </div>
-        <div className="flex items-center gap-1">
-          <RatingDot value={player.fieldingOverall} />
-          <RatingDot value={player.catching} />
-          <RatingDot value={player.throwing} />
-          <RatingDot value={player.battingOverall} />
-        </div>
+        {showRatings && (
+          <div className="flex items-center gap-1">
+            <RatingDot value={player.fieldingOverall} />
+            <RatingDot value={player.catching} />
+            <RatingDot value={player.throwing} />
+            <RatingDot value={player.battingOverall} />
+          </div>
+        )}
       </button>
     );
   }
@@ -81,12 +84,14 @@ export function PlayerCard({ player, onEdit, compact = false }: PlayerCardProps)
           <p className="text-sm text-gold/50">Age {age}</p>
         </div>
       </div>
-      <div className="grid grid-cols-4 gap-2">
-        <RatingDot value={player.fieldingOverall} label="Field" />
-        <RatingDot value={player.catching} label="Catch" />
-        <RatingDot value={player.throwing} label="Throw" />
-        <RatingDot value={player.battingOverall} label="Bat" />
-      </div>
+      {showRatings && (
+        <div className="grid grid-cols-4 gap-2">
+          <RatingDot value={player.fieldingOverall} label="Field" />
+          <RatingDot value={player.catching} label="Catch" />
+          <RatingDot value={player.throwing} label="Throw" />
+          <RatingDot value={player.battingOverall} label="Bat" />
+        </div>
+      )}
     </button>
   );
 }

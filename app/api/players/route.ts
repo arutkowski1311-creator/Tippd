@@ -1,26 +1,51 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { getSession, ensureUserTeam } from "@/lib/auth";
+import { getSession, ensureUserTeam, isCoachRole } from "@/lib/auth";
 
-async function getTeamId(): Promise<string> {
+async function getTeamContext() {
   const session = await getSession();
   if (session) {
     const membership = await ensureUserTeam(session.userId);
-    return membership.team.id;
+    return { teamId: membership.team.id, role: membership.role };
   }
-  return "default-team"; // fallback for unauthenticated access during MVP
+  return { teamId: "default-team", role: "member" };
 }
 
 export async function GET() {
   try {
-    const teamId = await getTeamId();
+    const { teamId, role } = await getTeamContext();
+    const isCoach = isCoachRole(role);
 
     const players = await prisma.player.findMany({
       where: { teamId, active: true },
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
     });
 
-    return NextResponse.json(players);
+    // Strip rating fields for non-coach users
+    if (!isCoach) {
+      const sanitized = players.map((p) => ({
+        id: p.id,
+        teamId: p.teamId,
+        firstName: p.firstName,
+        lastName: p.lastName,
+        dob: p.dob,
+        active: p.active,
+        createdAt: p.createdAt,
+        updatedAt: p.updatedAt,
+        // Hide ratings from non-coaches
+        fieldingOverall: 0,
+        catching: 0,
+        throwing: 0,
+        battingOverall: 0,
+      }));
+      return NextResponse.json(sanitized, {
+        headers: { "X-Role": role },
+      });
+    }
+
+    return NextResponse.json(players, {
+      headers: { "X-Role": role },
+    });
   } catch (error) {
     console.error("Failed to get players:", error);
     return NextResponse.json(
@@ -32,6 +57,16 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const { teamId, role } = await getTeamContext();
+
+    // Only coaches can add players
+    if (!isCoachRole(role)) {
+      return NextResponse.json(
+        { error: "Only coaches can add players" },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
     const { firstName, lastName, dob, fieldingOverall, catching, throwing, battingOverall } = body;
 
@@ -41,8 +76,6 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
-
-    const teamId = await getTeamId();
 
     const player = await prisma.player.create({
       data: {
