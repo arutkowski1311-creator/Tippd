@@ -54,6 +54,8 @@ export function validateLineup(
   }
 
   // ─── Fielding Validation ─────────────────────────────────────────
+  const fewerPlayersThanPositions = playerIds.length < positions.length;
+
   for (const inning of INNINGS) {
     const inningAssignments = fieldingAssignments.filter(
       (a) => a.inningNumber === inning && a.assignmentType === "planned"
@@ -64,9 +66,12 @@ export function validateLineup(
 
     for (const pos of positions) {
       if (!positionsUsed.has(pos)) {
+        // If we have fewer players than positions, unfilled spots are expected — just warn
         warnings.push({
-          type: "error",
-          message: `Inning ${inning}: Missing position ${pos}`,
+          type: fewerPlayersThanPositions ? "warning" : "error",
+          message: fewerPlayersThanPositions
+            ? `Inning ${inning}: ${pos} unfilled (not enough players)`
+            : `Inning ${inning}: Missing position ${pos}`,
           inning,
           position: pos,
         });
