@@ -132,7 +132,8 @@ const DUMPSTER_TRANSITIONS: Record<DumpsterStatus, DumpsterStatus[]> = {
   available: ["assigned"],
   assigned: ["deployed", "available"], // available if job cancelled
   deployed: ["picked_up_full", "returning"],
-  picked_up_full: ["at_transfer"], // in transit from customer to dump
+  picked_up_full: ["at_transfer", "staged"], // staged = dropped outside closed transfer station
+  staged: ["at_transfer"],                   // facility opens → driver dumps it → at_transfer
   at_transfer: ["returning"], // at dump facility being offloaded
   returning: ["in_yard"],
   in_yard: ["available", "needs_cleaning", "needs_repair", "repair"],

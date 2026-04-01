@@ -48,6 +48,7 @@ interface SegmentData {
   box_size?: string;
   box_condition?: string;
   box_reused?: boolean;
+  dump_location_id?: string;
   label: string;
   status: string;
   arrived_at?: string;
@@ -110,6 +111,10 @@ export default function DriverJobPage() {
   // Pull from service state
   const [pullStep, setPullStep] = useState(0); // 0=hidden, 1=flag, 2=confirm, 3=note
   const [pullNote, setPullNote] = useState("");
+
+  // Stage outside gate state
+  const [showStageConfirm, setShowStageConfirm] = useState(false);
+  const [stageSubmitting, setStageSubmitting] = useState(false);
 
   // Audible state
   const [showAudible, setShowAudible] = useState(false);
@@ -435,6 +440,35 @@ export default function DriverJobPage() {
     const result = await sendAction("dump_complete");
     if (result?.ok) {
       setPhase("complete");
+    }
+  }
+
+  async function handleStageOutsideGate() {
+    setStageSubmitting(true);
+    setProcessing(true);
+    try {
+      const res = await fetch(`/api/driver/segment/${realSegmentId}/complete`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "dump",
+          action: "stage_outside_gate",
+          job_id: segment?.job_id,
+          dump_location_id: segment?.dump_location_id,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || data?.error) {
+        setActionError(data?.error || "Failed to stage box");
+      } else {
+        setShowStageConfirm(false);
+        setPhase("complete");
+      }
+    } catch {
+      setActionError("Network error");
+    } finally {
+      setStageSubmitting(false);
+      setProcessing(false);
     }
   }
 
@@ -973,6 +1007,48 @@ export default function DriverJobPage() {
         </div>
       )}
 
+      {/* ────── STAGE OUTSIDE GATE MODAL ────── */}
+
+      {showStageConfirm && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-end justify-center p-4">
+          <div className="w-full max-w-sm bg-white rounded-2xl shadow-2xl overflow-hidden">
+            <div className="bg-amber-50 border-b border-amber-200 px-5 py-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center">
+                  <span className="text-2xl">🏗️</span>
+                </div>
+                <div>
+                  <p className="font-bold text-gray-900">Drop Outside Gate?</p>
+                  <p className="text-xs text-gray-600 mt-0.5">Facility not open yet</p>
+                </div>
+              </div>
+            </div>
+            <div className="px-5 py-5">
+              <p className="text-sm text-gray-600 mb-4">
+                This will mark the box as <strong>staged</strong> at your current location — full, waiting to be dumped when the facility opens. Your dispatcher will be notified.
+              </p>
+              <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-5">
+                <p className="text-xs font-semibold text-amber-800">Box status after staging:</p>
+                <p className="text-sm font-bold text-amber-900 mt-0.5">🟠 Staged outside gate — Full — Not yet dumped</p>
+              </div>
+              <button
+                onClick={handleStageOutsideGate}
+                disabled={stageSubmitting}
+                className="w-full py-4 bg-amber-500 text-white rounded-xl text-base font-bold active:opacity-80 disabled:opacity-50 mb-2"
+              >
+                {stageSubmitting ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : "Confirm — Drop Outside Gate"}
+              </button>
+              <button
+                onClick={() => setShowStageConfirm(false)}
+                className="w-full py-3 border-2 border-gray-200 text-gray-600 rounded-xl font-medium text-sm active:bg-gray-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ────── EXCEPTION FLAG MODAL ────── */}
 
       {showFlagModal && (
@@ -1069,19 +1145,30 @@ export default function DriverJobPage() {
         )}
         {/* EN ROUTE → ARRIVED */}
         {(phase === "en_route" || phase === "dump_en_route") && (
-          <button
-            onClick={phase === "dump_en_route" ? handleDumpArrived : handleArrived}
-            disabled={processing}
-            className="w-full py-5 bg-tippd-blue text-white rounded-2xl text-xl font-bold active:opacity-80 shadow-lg disabled:opacity-50"
-          >
-            {processing ? (
-              <Loader2 className="w-6 h-6 animate-spin mx-auto" />
-            ) : phase === "dump_en_route" ? (
-              "ARRIVED AT DUMP"
-            ) : (
-              "ARRIVED"
+          <div className="space-y-2">
+            <button
+              onClick={phase === "dump_en_route" ? handleDumpArrived : handleArrived}
+              disabled={processing}
+              className="w-full py-5 bg-tippd-blue text-white rounded-2xl text-xl font-bold active:opacity-80 shadow-lg disabled:opacity-50"
+            >
+              {processing ? (
+                <Loader2 className="w-6 h-6 animate-spin mx-auto" />
+              ) : phase === "dump_en_route" ? (
+                "ARRIVED AT DUMP"
+              ) : (
+                "ARRIVED"
+              )}
+            </button>
+            {phase === "dump_en_route" && (
+              <button
+                onClick={() => setShowStageConfirm(true)}
+                disabled={processing}
+                className="w-full py-3 border-2 border-amber-400 bg-amber-50 text-amber-700 rounded-2xl text-sm font-bold active:bg-amber-100 disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                🏗️ Facility Closed — Drop Outside Gate
+              </button>
             )}
-          </button>
+          </div>
         )}
 
         {/* AT CUSTOMER → DROP/PICKUP */}
@@ -1157,6 +1244,13 @@ export default function DriverJobPage() {
             {!weight && (
               <p className="text-xs text-red-500 text-center">Enter the scale ticket weight before completing</p>
             )}
+            <button
+              onClick={() => setShowStageConfirm(true)}
+              disabled={processing}
+              className="w-full py-3 border-2 border-amber-400 bg-amber-50 text-amber-700 rounded-2xl text-sm font-bold active:bg-amber-100 disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              🏗️ Facility Closed — Drop Outside Gate
+            </button>
           </div>
         )}
 

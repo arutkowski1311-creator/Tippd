@@ -31,6 +31,68 @@ export async function POST(
     return NextResponse.json({ error: "Profile not found" }, { status: 404 });
   }
 
+  // Handle STAGE OUTSIDE GATE — box dropped outside a closed transfer station
+  if (type === "dump" && action === "stage_outside_gate") {
+    const { dump_location_id } = body;
+
+    // Get driver's current GPS from driver_state (updated every 30s by the driver app)
+    const { data: driverState } = await supabase
+      .from("driver_state")
+      .select("lat, lng")
+      .eq("driver_id", user.id)
+      .single() as any;
+
+    // Get the dump location name for the label
+    let dumpLocationName = "transfer station";
+    if (dump_location_id) {
+      const { data: dumpLoc } = await supabase
+        .from("dump_locations")
+        .select("name")
+        .eq("id", dump_location_id)
+        .single() as any;
+      if (dumpLoc?.name) dumpLocationName = dumpLoc.name;
+    }
+
+    // Find the dumpster(s) associated with the job
+    if (job_id) {
+      const { data: job } = await supabase
+        .from("jobs")
+        .select("dumpster_id, dumpster_unit_number")
+        .eq("id", job_id)
+        .single() as any;
+
+      if (job?.dumpster_id) {
+        await supabase
+          .from("dumpsters")
+          .update({
+            status: "staged",
+            fill_status: "full",
+            current_lat: driverState?.lat ?? null,
+            current_lng: driverState?.lng ?? null,
+            current_location_label: `Staged outside ${dumpLocationName}`,
+            staged_at: new Date().toISOString(),
+            staged_near_dump_id: dump_location_id || null,
+          })
+          .eq("id", job.dumpster_id) as any;
+      }
+
+      // Create an action item so the owner knows
+      const unitLabel = job?.dumpster_unit_number ? ` (${job.dumpster_unit_number})` : "";
+      await supabase
+        .from("action_items")
+        .insert({
+          operator_id: profile.operator_id,
+          type: "driver_flag",
+          priority: "high",
+          title: `📦 Box${unitLabel} staged outside ${dumpLocationName} — not yet dumped`,
+          description: `Driver dropped the box outside the gate because the facility was not yet open. It is full and needs to be dumped when the facility opens.`,
+          status: "open",
+        }) as any;
+    }
+
+    return NextResponse.json({ ok: true, completed: id, type: "staged" });
+  }
+
   // Handle DUMP actions
   if (type === "dump") {
     if (action === "dump_arrived" && job_id) {

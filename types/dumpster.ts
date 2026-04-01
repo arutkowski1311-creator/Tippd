@@ -7,6 +7,7 @@ export const DUMPSTER_STATUSES = [
   "needs_cleaning",
   "needs_repair",
   "picked_up_full",
+  "staged",         // Picked up, dropped outside a closed transfer station — full, waiting to be dumped
   "at_transfer",
   "repair",
   "retired",
@@ -32,6 +33,13 @@ export interface Dumpster {
   repair_cost_estimate: number | null;
   repair_return_date: string | null;
   created_at: string;
+  // Location tracking fields (added for staging flow + fleet map)
+  current_lat: number | null;
+  current_lng: number | null;
+  current_location_label: string | null;
+  fill_status: "empty" | "full" | "unknown";
+  staged_at: string | null;
+  staged_near_dump_id: string | null;
 }
 
 export interface DumpsterConditionLog {

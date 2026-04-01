@@ -56,6 +56,7 @@ export const DUMPSTER_STATUS_COLORS: Record<DumpsterStatus, { bg: string; text: 
   needs_cleaning: { bg: "bg-yellow-100", text: "text-yellow-800", label: "Needs Cleaning" },
   needs_repair: { bg: "bg-orange-100", text: "text-orange-800", label: "Needs Repair" },
   picked_up_full: { bg: "bg-violet-100", text: "text-violet-800", label: "Picked Up (Full)" },
+  staged: { bg: "bg-orange-100", text: "text-orange-800", label: "Staged Outside Gate" },
   at_transfer: { bg: "bg-cyan-100", text: "text-cyan-800", label: "At Transfer Station" },
   repair: { bg: "bg-red-100", text: "text-red-800", label: "Repair" },
   retired: { bg: "bg-gray-200", text: "text-gray-600", label: "Retired" },

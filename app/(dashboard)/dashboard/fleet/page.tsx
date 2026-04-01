@@ -1,10 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { Plus, Search, Filter, MapPin, Clock, AlertTriangle } from "lucide-react";
+import { Plus, Search, MapPin, Clock, AlertTriangle, Map as MapIcon, List } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
+import dynamic from "next/dynamic";
+import type { FleetDumpster } from "@/components/fleet/FleetMap";
+
+// Load map only client-side (Google Maps needs the window object)
+const FleetMap = dynamic(() => import("@/components/fleet/FleetMap"), { ssr: false });
 
 type Dumpster = {
   id: string;
@@ -121,6 +126,7 @@ function getGradeColor(grade: string) {
 
 type StatusFilter = "all" | "available" | "in_use" | "overdue" | "repair";
 type SortOption = "unit" | "soonest_back" | "longest_out" | "condition";
+type ViewMode = "list" | "map";
 
 export default function BoxesPage() {
   const [dumpsters, setDumpsters] = useState<Dumpster[]>([]);
@@ -131,6 +137,14 @@ export default function BoxesPage() {
   const [sizeFilter, setSizeFilter] = useState<string>("all");
   const [gradeFilter, setGradeFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<SortOption>("unit");
+  const [viewMode, setViewMode] = useState<ViewMode>("list");
+
+  // Map data
+  const [mapDumpsters, setMapDumpsters] = useState<FleetDumpster[]>([]);
+  const [mapYard, setMapYard] = useState<{ lat: number; lng: number; address: string } | null>(null);
+  const [mapTransferStations, setMapTransferStations] = useState<Array<{ id: string; lat: number; lng: number; name: string }>>([]);
+  const [mapLoading, setMapLoading] = useState(false);
+  const mapLoadedRef = useRef(false);
 
   useEffect(() => {
     async function load() {
@@ -167,6 +181,57 @@ export default function BoxesPage() {
     }
     load();
   }, []);
+
+  // Load map data when switching to map view (lazy — only once)
+  useEffect(() => {
+    if (viewMode !== "map" || mapLoadedRef.current) return;
+    mapLoadedRef.current = true;
+
+    async function loadMapData() {
+      setMapLoading(true);
+      try {
+        const supabase = createClient();
+
+        // Dumpster locations (resolved lat/lng from API)
+        const res = await fetch("/api/dumpsters/locations");
+        if (res.ok) {
+          const data = await res.json();
+          setMapDumpsters(data);
+        }
+
+        // Yard info
+        const { data: opData } = await supabase
+          .from("operators")
+          .select("yard_lat, yard_lng, yard_address")
+          .single() as any;
+        if (opData?.yard_lat && opData?.yard_lng) {
+          setMapYard({ lat: opData.yard_lat, lng: opData.yard_lng, address: opData.yard_address || "Yard" });
+        }
+
+        // Transfer stations
+        const { data: stations } = await supabase
+          .from("dump_locations")
+          .select("id, lat, lng, name")
+          .eq("is_active", true) as any;
+        if (stations) setMapTransferStations(stations);
+      } catch {
+        // Non-fatal
+      } finally {
+        setMapLoading(false);
+      }
+    }
+
+    loadMapData();
+    // Refresh map data every 60s while map is open
+    const interval = setInterval(async () => {
+      if (document.visibilityState !== "visible") return;
+      try {
+        const res = await fetch("/api/dumpsters/locations");
+        if (res.ok) setMapDumpsters(await res.json());
+      } catch {}
+    }, 60_000);
+    return () => clearInterval(interval);
+  }, [viewMode]);
 
   // Compute stats
   const stats = {
@@ -256,10 +321,33 @@ export default function BoxesPage() {
           <h1 className="text-2xl font-bold text-white">Boxes</h1>
           <p className="text-sm text-tippd-smoke mt-1">{stats.total} dumpsters</p>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2 bg-tippd-blue text-white rounded-md text-sm font-semibold hover:opacity-90">
-          <Plus className="w-4 h-4" />
-          Add Dumpster
-        </button>
+        <div className="flex items-center gap-2">
+          {/* List / Map toggle */}
+          <div className="flex gap-0.5 bg-tippd-steel rounded-md border border-white/10 p-0.5">
+            <button
+              onClick={() => setViewMode("list")}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-semibold transition-colors",
+                viewMode === "list" ? "bg-tippd-blue text-white" : "text-tippd-ash hover:text-white"
+              )}
+            >
+              <List className="w-3.5 h-3.5" /> List
+            </button>
+            <button
+              onClick={() => setViewMode("map")}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-semibold transition-colors",
+                viewMode === "map" ? "bg-tippd-blue text-white" : "text-tippd-ash hover:text-white"
+              )}
+            >
+              <MapIcon className="w-3.5 h-3.5" /> Map
+            </button>
+          </div>
+          <button className="flex items-center gap-2 px-4 py-2 bg-tippd-blue text-white rounded-md text-sm font-semibold hover:opacity-90">
+            <Plus className="w-4 h-4" />
+            Add
+          </button>
+        </div>
       </div>
 
       {/* Status Summary Bar */}
@@ -320,6 +408,62 @@ export default function BoxesPage() {
           <p className="text-2xl font-bold text-white mt-1">{stats.repair}</p>
         </button>
       </div>
+
+      {/* ── MAP VIEW ── */}
+      {viewMode === "map" && (
+        <div>
+          {mapLoading ? (
+            <div className="flex items-center justify-center" style={{ height: "480px" }}>
+              <div className="text-center">
+                <div className="w-8 h-8 border-2 border-tippd-blue border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+                <p className="text-sm text-tippd-ash">Loading fleet map...</p>
+              </div>
+            </div>
+          ) : (
+            <div>
+              {/* Legend */}
+              <div className="flex flex-wrap gap-3 mb-3 text-xs text-tippd-ash">
+                {[
+                  { color: "bg-emerald-500", label: "In Yard / Available" },
+                  { color: "bg-blue-500", label: "At Customer" },
+                  { color: "bg-orange-500", label: "In Transit / Staged" },
+                  { color: "bg-red-500", label: "At Transfer Station" },
+                  { color: "bg-gray-500", label: "Repair / Retired" },
+                ].map(({ color, label }) => (
+                  <span key={label} className="flex items-center gap-1.5">
+                    <span className={cn("w-3 h-3 rounded-sm shrink-0", color)} />
+                    {label}
+                  </span>
+                ))}
+                <span className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-full border-2 border-white bg-transparent shrink-0" />
+                  Empty
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-full bg-gray-900 border border-white shrink-0" />
+                  Full
+                </span>
+              </div>
+              <FleetMap
+                dumpsters={mapDumpsters}
+                yard={mapYard}
+                transferStations={mapTransferStations}
+              />
+              <p className="text-xs text-tippd-ash mt-2 text-center">
+                Updates every 60 seconds · {mapDumpsters.filter(d => d.lat && d.lng).length} boxes with known location
+                {mapDumpsters.filter(d => d.status === "staged").length > 0 && (
+                  <span className="text-orange-400 font-semibold ml-2">
+                    · {mapDumpsters.filter(d => d.status === "staged").length} staged outside gate ⚠️
+                  </span>
+                )}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── LIST VIEW ── */}
+      {viewMode === "list" && <>
 
       {/* Search + Filters + Sort */}
       <div className="flex flex-wrap gap-2 sm:gap-3 mb-4">
@@ -482,6 +626,8 @@ export default function BoxesPage() {
           <p className="text-sm">No dumpsters match your filters.</p>
         </div>
       )}
+
+      </> /* end list view */}
     </div>
   );
 }
