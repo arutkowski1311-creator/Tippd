@@ -84,8 +84,8 @@ export async function POST(
           operator_id: profile.operator_id,
           type: "driver_flag",
           priority: "high",
-          title: `📦 Box${unitLabel} staged outside ${dumpLocationName} — not yet dumped`,
-          description: `Driver dropped the box outside the gate because the facility was not yet open. It is full and needs to be dumped when the facility opens.`,
+          title: `📦 Box${unitLabel} staged near ${dumpLocationName} — full, not yet dumped`,
+          description: `Driver staged the box at their current location. It is full and needs to be dumped before it can be returned to service.`,
           status: "open",
         }) as any;
     }
