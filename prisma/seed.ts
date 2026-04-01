@@ -19,24 +19,24 @@ async function main() {
   console.log("Created team:", team.name);
 
   // Create coach account
-  const hashedPassword = await bcrypt.hash("password123", 10);
+  const hashedPassword = await bcrypt.hash("Megan1311!", 10);
   const user = await prisma.user.upsert({
-    where: { email: "coach@thunder.com" },
+    where: { email: "arutkowski1311@gmail.com" },
     update: {},
     create: {
-      id: "demo-coach",
-      email: "coach@thunder.com",
-      name: "Coach",
+      id: "head-coach",
+      email: "arutkowski1311@gmail.com",
+      name: "Coach Rutkowski",
       password: hashedPassword,
     },
   });
 
   // Create team membership
   await prisma.teamMembership.upsert({
-    where: { id: "demo-membership" },
+    where: { id: "coach-membership" },
     update: {},
     create: {
-      id: "demo-membership",
+      id: "coach-membership",
       teamId: team.id,
       userId: user.id,
       role: "head_coach",
@@ -44,7 +44,7 @@ async function main() {
     },
   });
 
-  console.log("Created coach account: coach@thunder.com / password123");
+  console.log("Created coach account: arutkowski1311@gmail.com");
   console.log("Seed complete! Add your roster at /roster");
 }
 
