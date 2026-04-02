@@ -74,6 +74,12 @@ export async function POST(request: Request) {
     }
 
     const teamId = await getTeamId();
+    if (!teamId) {
+      return NextResponse.json(
+        { error: "Not authenticated" },
+        { status: 401 }
+      );
+    }
 
     const game = await prisma.game.create({
       data: {
