@@ -85,7 +85,7 @@ export async function POST(request: Request) {
       data: {
         teamId,
         opponentName: opponentName.trim(),
-        gameDate: new Date(gameDate),
+        gameDate: new Date(gameDate + "T12:00:00"),
         coachMode: coachMode || "balanced",
         notes: notes || null,
         homeOrAway: homeOrAway || null,

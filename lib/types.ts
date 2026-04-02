@@ -41,6 +41,8 @@ export function getInfieldPositions(): Position[] {
 
 export const PRIORITY_POSITIONS: Position[] = ["P", "1B", "3B"];
 
+export const INFIELD_POSITIONS: Position[] = ["P", "C", "1B", "2B", "SS", "3B"];
+
 export const INNINGS = [1, 2, 3, 4, 5, 6] as const;
 export type InningNumber = (typeof INNINGS)[number];
 
