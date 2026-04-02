@@ -56,9 +56,10 @@ export default function NewGamePage() {
   useEffect(() => {
     fetch("/api/players")
       .then((res) => res.json())
-      .then((data: PlayerData[]) => {
+      .then((data) => {
+        if (!Array.isArray(data)) return;
         setPlayers(data);
-        setSelectedPlayerIds(new Set(data.map((p) => p.id)));
+        setSelectedPlayerIds(new Set(data.map((p: PlayerData) => p.id)));
       })
       .catch(() => toast.error("Failed to load players"))
       .finally(() => setLoading(false));
@@ -376,12 +377,6 @@ export default function NewGamePage() {
         <div className="flex flex-col gap-1 max-h-[40vh] overflow-y-auto rounded-lg border border-white/10 bg-white/5 p-2">
           {players.map((player) => {
             const isSelected = selectedPlayerIds.has(player.id);
-            const avg =
-              (player.fieldingOverall +
-                player.catching +
-                player.throwing +
-                player.battingOverall) /
-              4;
 
             return (
               <button
@@ -402,9 +397,6 @@ export default function NewGamePage() {
                 )}
                 <span className="flex-1 font-medium truncate">
                   {playerFullName(player.firstName, player.lastName)}
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  Avg {avg.toFixed(1)}
                 </span>
               </button>
             );

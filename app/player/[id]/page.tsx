@@ -61,6 +61,17 @@ export default function PlayerProfilePage() {
 
   const [data, setData] = useState<PlayerProfileData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isCoach, setIsCoach] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((r) => r.json())
+      .then((d) => {
+        const role = d?.role ?? "";
+        setIsCoach(["head_coach", "assistant_coach", "admin"].includes(role));
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     Promise.all([
@@ -153,17 +164,19 @@ export default function PlayerProfilePage() {
         </div>
       </div>
 
-      {/* Ratings */}
-      <Card>
-        <CardContent className="py-4">
-          <div className="flex items-center justify-around">
-            <RatingDots value={player.fieldingOverall} label="Fielding" />
-            <RatingDots value={player.catching} label="Catching" />
-            <RatingDots value={player.throwing} label="Throwing" />
-            <RatingDots value={player.battingOverall} label="Batting" />
-          </div>
-        </CardContent>
-      </Card>
+      {/* Ratings — coaches only */}
+      {isCoach && (
+        <Card>
+          <CardContent className="py-4">
+            <div className="flex items-center justify-around">
+              <RatingDots value={player.fieldingOverall} label="Fielding" />
+              <RatingDots value={player.catching} label="Catching" />
+              <RatingDots value={player.throwing} label="Throwing" />
+              <RatingDots value={player.battingOverall} label="Batting" />
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Season Stats */}
       <Card>

@@ -324,11 +324,7 @@ export default function LineupEditorPage() {
                     ? playerFullName(entry.player.firstName, entry.player.lastName)
                     : entry.playerId}
                 </span>
-                {entry.player && (
-                  <Badge className="text-xs bg-[hsl(46_100%_50%)] text-[hsl(0_0%_7%)] font-bold border-none hover:bg-[hsl(46_100%_45%)]">
-                    {entry.player.battingOverall}
-                  </Badge>
-                )}
+                {/* Rating badge removed — coach-only info */}
                 {!lineupLocked && (
                   <div className="flex flex-col">
                     <button

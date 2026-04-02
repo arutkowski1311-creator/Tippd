@@ -13,6 +13,7 @@ export default function RatingWizardPage() {
   const router = useRouter();
   const [players, setPlayers] = useState<PlayerData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isCoach, setIsCoach] = useState<boolean | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [ratings, setRatings] = useState<Record<string, {
     fieldingOverall: number;
@@ -23,9 +24,23 @@ export default function RatingWizardPage() {
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
+    fetch("/api/auth/me")
+      .then((r) => r.json())
+      .then((d) => {
+        const role = d?.role ?? "";
+        const coach = ["head_coach", "assistant_coach", "admin"].includes(role);
+        setIsCoach(coach);
+        if (!coach) router.push("/roster");
+      })
+      .catch(() => router.push("/roster"));
+  }, [router]);
+
+  useEffect(() => {
+    if (isCoach === false) return;
     fetch("/api/players")
       .then((res) => res.json())
-      .then((data: PlayerData[]) => {
+      .then((data) => {
+        if (!Array.isArray(data)) return;
         // Filter to players with default ratings (all 3s)
         const defaultPlayers = data.filter(
           (p) =>
