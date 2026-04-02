@@ -2,13 +2,17 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSession, ensureUserTeam } from "@/lib/auth";
 
-async function getTeamId(): Promise<string> {
-  const session = await getSession();
-  if (session) {
-    const membership = await ensureUserTeam(session.userId);
-    return membership.team.id;
+async function getTeamId(): Promise<string | null> {
+  try {
+    const session = await getSession();
+    if (session) {
+      const membership = await ensureUserTeam(session.userId);
+      return membership.team.id;
+    }
+  } catch {
+    // no session or DB error
   }
-  return "default-team"; // fallback for unauthenticated access during MVP
+  return null;
 }
 
 export async function GET(
@@ -18,6 +22,12 @@ export async function GET(
   try {
     const { id } = await params;
     const teamId = await getTeamId();
+    if (!teamId) {
+      return NextResponse.json(
+        { error: "Not authenticated" },
+        { status: 401 }
+      );
+    }
 
     const game = await prisma.game.findFirst({
       where: { id, teamId },
@@ -65,6 +75,12 @@ export async function PUT(
     const body = await request.json();
     const { battingOrder, fieldingAssignments, lineupLocked } = body;
     const teamId = await getTeamId();
+    if (!teamId) {
+      return NextResponse.json(
+        { error: "Not authenticated" },
+        { status: 401 }
+      );
+    }
 
     const game = await prisma.game.findFirst({
       where: { id, teamId },

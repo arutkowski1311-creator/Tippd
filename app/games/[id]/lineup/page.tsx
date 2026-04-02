@@ -75,8 +75,8 @@ export default function LineupEditorPage() {
       const lineupData = await lineupRes.json();
 
       setGame(gameData);
-      setBattingOrder(lineupData.battingOrder || []);
-      setFieldingAssignments(lineupData.fieldingAssignments || []);
+      setBattingOrder(Array.isArray(lineupData.battingOrder) ? lineupData.battingOrder : []);
+      setFieldingAssignments(Array.isArray(lineupData.fieldingAssignments) ? lineupData.fieldingAssignments : []);
       setLineupLocked(lineupData.lineupLocked || false);
 
       // Build player list from batting order
