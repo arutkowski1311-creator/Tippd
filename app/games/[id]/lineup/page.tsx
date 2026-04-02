@@ -200,10 +200,26 @@ export default function LineupEditorPage() {
     if (!game) return;
     setSaving(true);
     try {
-      const playerIds = battingOrder.map((b) => b.playerId);
+      // Use batting order player IDs, or fall back to fetching roster
+      let playerIds = battingOrder.map((b) => b.playerId);
+      if (playerIds.length === 0) {
+        const rosterRes = await fetch("/api/players");
+        if (rosterRes.ok) {
+          const rosterData = await rosterRes.json();
+          if (Array.isArray(rosterData)) {
+            playerIds = rosterData.map((p: { id: string }) => p.id);
+          }
+        }
+      }
+      if (playerIds.length === 0) {
+        toast.error("No players available");
+        setSaving(false);
+        return;
+      }
       const body: Record<string, unknown> = {
         playerIds,
         coachMode: game.coachMode,
+        defensiveFormat: game.defensiveFormat,
       };
 
       if (mode === "batting") {

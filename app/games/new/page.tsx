@@ -133,7 +133,7 @@ export default function NewGamePage() {
       const lineup = await genRes.json();
 
       // Save lineup
-      await fetch(`/api/games/${game.id}/lineup`, {
+      const saveRes = await fetch(`/api/games/${game.id}/lineup`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -141,6 +141,11 @@ export default function NewGamePage() {
           fieldingAssignments: lineup.fieldingAssignments,
         }),
       });
+      if (!saveRes.ok) {
+        const err = await saveRes.json().catch(() => ({}));
+        console.error("Lineup save error:", err);
+        throw new Error(err.error || "Failed to save lineup");
+      }
 
       toast.success("Game created with lineup!");
       router.push(`/games/${game.id}/hub`);
