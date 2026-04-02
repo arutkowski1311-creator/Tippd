@@ -123,10 +123,12 @@ export default function NewGamePage() {
       const genRes = await fetch(`/api/games/${game.id}/lineup/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ playerIds, coachMode }),
+        body: JSON.stringify({ playerIds, coachMode, defensiveFormat }),
       });
       if (!genRes.ok) {
-        throw new Error("Failed to generate lineup");
+        const err = await genRes.json().catch(() => ({}));
+        console.error("Lineup generate error:", err);
+        throw new Error(err.error || "Failed to generate lineup");
       }
       const lineup = await genRes.json();
 
