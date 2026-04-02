@@ -166,42 +166,59 @@ export default function GameHubPage() {
 
       {/* Score Section */}
       {(isLive || isFinal) && (
-        <div className="scoreboard-panel rounded-2xl p-[2px] bg-gradient-to-br from-gold/30 via-cardinal/20 to-gold/10">
-          <div className="rounded-[14px] bg-background/95 backdrop-blur px-5 py-4">
-            <div className="flex items-center justify-center gap-8">
-              <div className="text-center">
-                <p className="text-xs font-bold uppercase tracking-wider text-gold-gradient mb-1">Us</p>
-                <p className="text-5xl font-mono font-black tabular-nums text-gold led-glow">{totalUsRuns}</p>
-              </div>
-              <div className="text-center">
-                <p className={cn(
-                  "text-xs uppercase tracking-wide font-bold",
-                  isLive ? "text-red-400" : "text-gold/60"
-                )}>
-                  {isLive
-                    ? `${game.currentHalf === "top" ? "Top" : "Bot"} ${game.currentInning}`
-                    : "Final"}
-                </p>
-                {isLive && (
-                  <div className="flex items-center justify-center gap-3 mt-2">
-                    <OutTracker outs={game.currentOuts} size="sm" />
-                    <BaseDiamond
-                      runners={{
-                        first: !!parsedRunners.first,
-                        second: !!parsedRunners.second,
-                        third: !!parsedRunners.third,
-                      }}
-                      size="sm"
-                    />
-                  </div>
-                )}
-              </div>
-              <div className="text-center">
-                <p className="text-xs font-bold uppercase tracking-wider text-gold-gradient mb-1">
-                  {game.opponentName.slice(0, 8)}
-                </p>
-                <p className="text-5xl font-mono font-black tabular-nums text-gold led-glow">{totalOppRuns}</p>
-              </div>
+        <div className="rounded-xl overflow-hidden border border-[hsl(0_0%_20%)]" style={{
+          background: "linear-gradient(180deg, hsl(0 0% 10%) 0%, hsl(0 0% 6%) 100%)",
+          boxShadow: "inset 0 1px 0 hsl(0 0% 18% / 0.4), 0 2px 8px hsl(0 0% 0% / 0.5)",
+        }}>
+          {/* Scoreboard header bar */}
+          <div className="flex items-center justify-between px-4 py-1.5 border-b border-[hsl(0_0%_18%)]" style={{
+            background: "linear-gradient(180deg, hsl(0 0% 14%) 0%, hsl(0 0% 10%) 100%)",
+          }}>
+            <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-[hsl(0_0%_50%)]">Scoreboard</span>
+            <span className={cn(
+              "text-[10px] font-bold uppercase tracking-[0.15em]",
+              isLive ? "text-red-400" : "text-[hsl(0_0%_50%)]"
+            )}>
+              {isLive
+                ? `${game.currentHalf === "top" ? "TOP" : "BOT"} ${game.currentInning}`
+                : "FINAL"}
+            </span>
+          </div>
+          {/* Score area */}
+          <div className="flex items-center justify-center gap-10 px-5 py-5">
+            <div className="text-center">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[hsl(46_60%_55%)] mb-2">Us</p>
+              <p className="text-5xl font-mono font-black tabular-nums" style={{
+                color: "hsl(46 80% 60%)",
+                textShadow: "0 0 6px hsl(46 80% 50% / 0.3)",
+              }}>{totalUsRuns}</p>
+            </div>
+            <div className="text-center">
+              {isLive && (
+                <div className="flex items-center justify-center gap-3">
+                  <OutTracker outs={game.currentOuts} size="sm" />
+                  <BaseDiamond
+                    runners={{
+                      first: !!parsedRunners.first,
+                      second: !!parsedRunners.second,
+                      third: !!parsedRunners.third,
+                    }}
+                    size="sm"
+                  />
+                </div>
+              )}
+              {!isLive && (
+                <div className="w-px h-12 bg-[hsl(0_0%_20%)]" />
+              )}
+            </div>
+            <div className="text-center">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[hsl(0_0%_55%)] mb-2">
+                {game.opponentName.slice(0, 8).toUpperCase()}
+              </p>
+              <p className="text-5xl font-mono font-black tabular-nums" style={{
+                color: "hsl(0 0% 75%)",
+                textShadow: "0 0 4px hsl(0 0% 50% / 0.2)",
+              }}>{totalOppRuns}</p>
             </div>
           </div>
         </div>
@@ -212,7 +229,7 @@ export default function GameHubPage() {
         <Button
           variant="outline"
           size="sm"
-          className="shrink-0 border-gold/20 bg-white/[0.03] text-gold/80 hover:bg-gold/10 hover:text-gold hover:border-gold/40 card-glow transition-all"
+          className="shrink-0 border-gold/20 bg-white/[0.03] text-gold/80 hover:bg-gold/10 hover:text-gold hover:border-gold/40 transition-all"
           onClick={() => router.push(`/games/${gameId}/lineup`)}
         >
           <ListOrdered className="size-4 mr-1" />
@@ -222,7 +239,7 @@ export default function GameHubPage() {
           <Button
             variant="outline"
             size="sm"
-            className="shrink-0 border-gold/20 bg-white/[0.03] text-gold/80 hover:bg-gold/10 hover:text-gold hover:border-gold/40 card-glow transition-all"
+            className="shrink-0 border-gold/20 bg-white/[0.03] text-gold/80 hover:bg-gold/10 hover:text-gold hover:border-gold/40 transition-all"
             onClick={() => router.push(`/games/${gameId}/live`)}
           >
             <Radio className="size-4 mr-1" />
@@ -233,7 +250,7 @@ export default function GameHubPage() {
           <Button
             variant="outline"
             size="sm"
-            className="shrink-0 border-gold/20 bg-white/[0.03] text-gold/80 hover:bg-gold/10 hover:text-gold hover:border-gold/40 card-glow transition-all"
+            className="shrink-0 border-gold/20 bg-white/[0.03] text-gold/80 hover:bg-gold/10 hover:text-gold hover:border-gold/40 transition-all"
             onClick={() => router.push(`/games/${gameId}/scorebook`)}
           >
             <BookOpen className="size-4 mr-1" />
@@ -243,7 +260,7 @@ export default function GameHubPage() {
         <Button
           variant="outline"
           size="sm"
-          className="shrink-0 border-gold/20 bg-white/[0.03] text-gold/80 hover:bg-gold/10 hover:text-gold hover:border-gold/40 card-glow transition-all"
+          className="shrink-0 border-gold/20 bg-white/[0.03] text-gold/80 hover:bg-gold/10 hover:text-gold hover:border-gold/40 transition-all"
           onClick={() => window.print()}
         >
           <Printer className="size-4 mr-1" />
@@ -391,7 +408,7 @@ export default function GameHubPage() {
       )}
 
       {/* Recap */}
-      <Card className="border-gold/10 bg-white/[0.02] card-glow transition-all">
+      <Card className="border-gold/10 bg-white/[0.02] transition-all">
         <CardHeader>
           <CardTitle className="text-sm flex items-center gap-2 text-gold-gradient">
             <Sparkles className="size-4 text-gold" />
@@ -426,7 +443,7 @@ export default function GameHubPage() {
       </Card>
 
       {/* Awards */}
-      <Card className="border-gold/10 bg-white/[0.02] card-glow transition-all">
+      <Card className="border-gold/10 bg-white/[0.02] transition-all">
         <CardHeader>
           <CardTitle className="text-sm flex items-center gap-2 text-gold-gradient">
             <Trophy className="size-4 text-gold" />
@@ -465,7 +482,7 @@ export default function GameHubPage() {
       </Card>
 
       {/* Media */}
-      <Card className="border-gold/10 bg-white/[0.02] card-glow transition-all">
+      <Card className="border-gold/10 bg-white/[0.02] transition-all">
         <CardHeader>
           <CardTitle className="text-sm flex items-center gap-2 text-gold-gradient">
             <ImageIcon className="size-4 text-gold" />
@@ -502,7 +519,7 @@ export default function GameHubPage() {
 
       {/* Livestream */}
       {game.livestreamUrl && (
-        <Card className="border-gold/10 bg-white/[0.02] card-glow transition-all">
+        <Card className="border-gold/10 bg-white/[0.02] transition-all">
           <CardHeader>
             <CardTitle className="text-sm flex items-center gap-2 text-gold-gradient">
               <Video className="size-4 text-gold" />

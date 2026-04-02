@@ -362,7 +362,7 @@ export default function LineupEditorPage() {
       </Tabs>
 
       {/* Action buttons */}
-      <div className="fixed bottom-16 inset-x-0 bg-[hsl(0_0%_7%/0.95)] backdrop-blur border-t border-[hsl(0_0%_15%)] px-4 py-3 md:bottom-0">
+      <div className="fixed bottom-[4.5rem] inset-x-0 bg-[hsl(0_0%_7%/0.95)] backdrop-blur border-t border-[hsl(0_0%_15%)] px-4 py-3 z-40">
         <div className="max-w-lg mx-auto flex flex-wrap gap-2">
           {!lineupLocked && (
             <>
