@@ -95,35 +95,29 @@ export async function PUT(
 
     await prisma.$transaction(async (tx) => {
       // Replace batting order
-      if (Array.isArray(battingOrder)) {
+      if (Array.isArray(battingOrder) && battingOrder.length > 0) {
         await tx.gameBattingOrder.deleteMany({ where: { gameId: id } });
-
-        for (const entry of battingOrder) {
-          await tx.gameBattingOrder.create({
-            data: {
-              gameId: id,
-              battingSlot: entry.battingSlot,
-              playerId: entry.playerId,
-            },
-          });
-        }
+        await tx.gameBattingOrder.createMany({
+          data: battingOrder.map((entry: { battingSlot: number; playerId: string }) => ({
+            gameId: id,
+            battingSlot: entry.battingSlot,
+            playerId: entry.playerId,
+          })),
+        });
       }
 
       // Replace fielding assignments
-      if (Array.isArray(fieldingAssignments)) {
+      if (Array.isArray(fieldingAssignments) && fieldingAssignments.length > 0) {
         await tx.gameFieldingAssignment.deleteMany({ where: { gameId: id } });
-
-        for (const entry of fieldingAssignments) {
-          await tx.gameFieldingAssignment.create({
-            data: {
-              gameId: id,
-              inningNumber: entry.inningNumber,
-              position: entry.position,
-              playerId: entry.playerId,
-              assignmentType: entry.assignmentType || "planned",
-            },
-          });
-        }
+        await tx.gameFieldingAssignment.createMany({
+          data: fieldingAssignments.map((entry: { inningNumber: number; position: string; playerId: string; assignmentType?: string }) => ({
+            gameId: id,
+            inningNumber: entry.inningNumber,
+            position: entry.position,
+            playerId: entry.playerId,
+            assignmentType: entry.assignmentType || "planned",
+          })),
+        });
       }
 
       // Update lineupLocked if provided
@@ -160,7 +154,7 @@ export async function PUT(
   } catch (error) {
     console.error("Failed to save lineup:", error);
     return NextResponse.json(
-      { error: "Failed to save lineup" },
+      { error: "Failed to save lineup", details: String(error) },
       { status: 500 }
     );
   }
