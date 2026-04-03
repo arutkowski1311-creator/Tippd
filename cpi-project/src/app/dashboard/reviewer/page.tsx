@@ -191,8 +191,91 @@ export default function ReviewerDashboard() {
   const [reviewingNomination, setReviewingNomination] =
     useState<Nomination | null>(null);
 
-  // TODO: fetch from API based on tab
-  const nominations: Nomination[] = [];
+  // Demo nominations for preview
+  const demoNominations: Nomination[] = [
+    {
+      id: "demo-1",
+      cycle_id: null,
+      nominee_id: "u1",
+      nominator_id: "u2",
+      is_anonymous: false,
+      category: "vigilance",
+      raw_text:
+        "During a busy trauma shift, Sarah noticed a subtle change in a patient's rhythm strip that the monitoring tech had missed. She immediately alerted the attending, and the patient was taken to the cath lab within 20 minutes. The cardiologist later confirmed it would have been a STEMI if not caught early.",
+      ai_text:
+        "During a high-acuity trauma shift, identified a subtle rhythm change on telemetry that had been overlooked. Escalated immediately to the attending physician, resulting in emergent cardiac catheterization within 20 minutes. Early detection prevented progression to STEMI.",
+      ai_category: "vigilance",
+      ai_confidence: 0.94,
+      ai_reasoning: "Proactive identification of a missed clinical finding before patient harm occurred.",
+      tags: ["cardiac", "early-detection"],
+      status: "submitted",
+      hospital_id: "h1",
+      department_id: "d1",
+      created_at: "2026-03-28T14:30:00Z",
+      updated_at: "2026-03-28T14:30:00Z",
+      nominee: {
+        id: "u1",
+        email: "sarah.chen@hospital.org",
+        full_name: "Sarah Chen",
+        role: "staff",
+        title: "RN, BSN",
+        hospital_id: "h1",
+        department_id: "d1",
+        avatar_url: null,
+        created_at: "2026-01-01T00:00:00Z",
+        updated_at: "2026-01-01T00:00:00Z",
+      },
+      nominator: {
+        id: "u2",
+        email: "james.miller@hospital.org",
+        full_name: "James Miller",
+        role: "staff",
+        title: "MD",
+        hospital_id: "h1",
+        department_id: "d1",
+        avatar_url: null,
+        created_at: "2026-01-01T00:00:00Z",
+        updated_at: "2026-01-01T00:00:00Z",
+      },
+      reviews: [],
+    },
+    {
+      id: "demo-2",
+      cycle_id: null,
+      nominee_id: "u3",
+      nominator_id: null,
+      is_anonymous: true,
+      category: "flow",
+      raw_text:
+        "Marcus completely reorganized how we do our morning med pass. He created a system where meds are pre-sorted by room and time window so nurses aren't running back and forth to the Pyxis. Our unit went from averaging 45 min late on morning meds to being on time almost every day. He did this on his own time.",
+      ai_text:
+        "Independently redesigned the unit's morning medication distribution workflow by implementing a pre-sorted system organized by room and time window, eliminating redundant trips to the automated dispensing cabinet. Reduced average medication administration delays from 45 minutes to near-zero across the unit.",
+      ai_category: "flow",
+      ai_confidence: 0.91,
+      ai_reasoning: "Systematic workflow improvement that increased efficiency and coordination across the unit.",
+      tags: ["workflow", "medication-safety", "process-improvement"],
+      status: "submitted",
+      hospital_id: "h1",
+      department_id: "d1",
+      created_at: "2026-04-01T09:15:00Z",
+      updated_at: "2026-04-01T09:15:00Z",
+      nominee: {
+        id: "u3",
+        email: "marcus.washington@hospital.org",
+        full_name: "Marcus Washington",
+        role: "staff",
+        title: "RN",
+        hospital_id: "h1",
+        department_id: "d1",
+        avatar_url: null,
+        created_at: "2026-01-01T00:00:00Z",
+        updated_at: "2026-01-01T00:00:00Z",
+      },
+      reviews: [],
+    },
+  ];
+
+  const nominations = activeTab === "pending" ? demoNominations : [];
 
   const tabs = [
     { id: "pending" as Tab, label: "Pending", icon: ClipboardList },
