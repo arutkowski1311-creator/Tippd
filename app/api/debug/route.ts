@@ -18,21 +18,24 @@ export async function GET() {
   }
 
   // 2. Test auth
+  let teamId: string | null = null;
   try {
     const session = await getSession();
     results.session = session ? { userId: session.userId, email: session.email } : "no session";
     if (session) {
       const membership = await ensureUserTeam(session.userId);
-      results.teamId = membership.team.id;
+      teamId = membership.team.id;
+      results.teamId = teamId;
       results.role = membership.role;
     }
   } catch (e) {
     results.auth = "FAILED: " + String(e);
   }
 
-  // 3. Test lineup generation with first available game
+  // 3. Test lineup generation AND saving
   try {
     const game = await prisma.game.findFirst({
+      where: teamId ? { teamId } : undefined,
       orderBy: { createdAt: "desc" },
     });
     if (game) {
@@ -73,6 +76,42 @@ export async function GET() {
         results.lineupGenerated = true;
         results.battingOrderCount = lineup.battingOrder.length;
         results.fieldingCount = lineup.fieldingAssignments.length;
+        results.sampleBatting = lineup.battingOrder.slice(0, 2);
+        results.sampleFielding = lineup.fieldingAssignments.slice(0, 2);
+
+        // 4. Actually try to SAVE the lineup
+        try {
+          await prisma.$transaction(async (tx) => {
+            await tx.gameBattingOrder.deleteMany({ where: { gameId: game.id } });
+            await tx.gameBattingOrder.createMany({
+              data: lineup.battingOrder.map((b) => ({
+                gameId: game.id,
+                battingSlot: b.battingSlot,
+                playerId: b.playerId,
+              })),
+            });
+
+            await tx.gameFieldingAssignment.deleteMany({ where: { gameId: game.id } });
+            await tx.gameFieldingAssignment.createMany({
+              data: lineup.fieldingAssignments.map((f) => ({
+                gameId: game.id,
+                inningNumber: f.inningNumber,
+                position: f.position,
+                playerId: f.playerId,
+                assignmentType: f.assignmentType || "planned",
+              })),
+            });
+          });
+          results.lineupSaved = "OK";
+
+          // Verify
+          const savedBatting = await prisma.gameBattingOrder.count({ where: { gameId: game.id } });
+          const savedFielding = await prisma.gameFieldingAssignment.count({ where: { gameId: game.id } });
+          results.savedBattingCount = savedBatting;
+          results.savedFieldingCount = savedFielding;
+        } catch (e) {
+          results.lineupSave = "FAILED: " + String(e);
+        }
       }
     } else {
       results.latestGame = "none";
