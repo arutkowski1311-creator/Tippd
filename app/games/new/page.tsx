@@ -47,7 +47,7 @@ export default function NewGamePage() {
   );
   const [homeOrAway, setHomeOrAway] = useState<HomeOrAway>("home");
   const [venue, setVenue] = useState("");
-  const [defensiveFormat, setDefensiveFormat] = useState<DefensiveFormat>("standard");
+  const [defensiveFormat, setDefensiveFormat] = useState<DefensiveFormat>("four_outfield");
   const [simpleModeEnabled, setSimpleModeEnabled] = useState(true);
   const [advancedModeEnabled, setAdvancedModeEnabled] = useState(false);
   const [livestreamUrl, setLivestreamUrl] = useState("");

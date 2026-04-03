@@ -21,7 +21,6 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ScoreDisplay } from "@/components/softball/score-display";
 import { BaseDiamond } from "@/components/softball/base-diamond";
 import { OutTracker } from "@/components/softball/out-tracker";
@@ -269,118 +268,68 @@ export default function GameHubPage() {
       </div>
 
       {/* Tabbed Content */}
-      <Tabs defaultValue="lineup">
-        <TabsList className="w-full bg-white/[0.03] border border-gold/10">
-          <TabsTrigger value="lineup" className="data-[state=active]:bg-gold/15 data-[state=active]:text-gold data-[state=active]:shadow-[0_1px_0_0_hsl(46_100%_50%)] text-white/50">Lineup</TabsTrigger>
-          <TabsTrigger value="scoring" className="data-[state=active]:bg-gold/15 data-[state=active]:text-gold data-[state=active]:shadow-[0_1px_0_0_hsl(46_100%_50%)] text-white/50">Scoring</TabsTrigger>
-          <TabsTrigger value="plays" className="data-[state=active]:bg-gold/15 data-[state=active]:text-gold data-[state=active]:shadow-[0_1px_0_0_hsl(46_100%_50%)] text-white/50">Plays</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="lineup">
-          <div className="mt-3 space-y-4">
-            {/* Batting Order */}
-            <div>
-              <h3 className="text-sm font-bold text-gold-gradient mb-2">Batting Order</h3>
-              {battingOrder.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No lineup set yet.</p>
-              ) : (
-                <div className="flex flex-col gap-0.5">
-                  {battingOrder
-                    .sort((a, b) => a.battingSlot - b.battingSlot)
-                    .map((entry) => {
-                      const player = playerMap.get(entry.playerId);
-                      return (
-                        <div
-                          key={entry.battingSlot}
-                          className="flex items-center gap-3 rounded-lg bg-[hsl(0_0%_10%)] border border-[hsl(0_0%_16%)] px-3 py-2"
-                        >
-                          <span className="text-sm font-bold text-gold/60 w-6 text-center font-mono">
-                            {entry.battingSlot}
-                          </span>
-                          <span className="flex-1 text-sm font-medium text-white/90 truncate">
-                            {player
-                              ? playerFullName(player.firstName, player.lastName)
-                              : "Unknown"}
-                          </span>
-                          {player?.jerseyNumber && (
-                            <span className="text-xs text-gold/40 font-mono">
-                              #{player.jerseyNumber}
-                            </span>
-                          )}
-                        </div>
-                      );
-                    })}
-                </div>
-              )}
-            </div>
-
-            {/* Fielding - Inning 1 */}
-            {fieldingAssignments.length > 0 && (
-              <div>
-                <h3 className="text-sm font-bold text-gold-gradient mb-2">Fielding - Inning 1</h3>
-                <div className="grid grid-cols-3 gap-1.5">
-                  {fieldingAssignments
-                    .filter((a) => a.inningNumber === 1)
-                    .map((a) => {
-                      const player = playerMap.get(a.playerId);
-                      return (
-                        <div
-                          key={`${a.position}`}
-                          className="flex items-center gap-2 rounded-lg bg-[hsl(0_0%_10%)] border border-[hsl(0_0%_16%)] px-2.5 py-2"
-                        >
-                          <span className="text-[10px] font-bold text-gold/60 uppercase tracking-wider w-6">
-                            {a.position}
-                          </span>
-                          <span className="text-xs font-medium truncate text-white/80">
-                            {player ? player.firstName : "-"}
-                          </span>
-                        </div>
-                      );
-                    })}
-                </div>
-              </div>
-            )}
-          </div>
-        </TabsContent>
-
-        <TabsContent value="scoring">
-          <Card className="mt-3 border-gold/10 bg-white/[0.02]">
-            <CardContent className="py-4">
-              <ScoreDisplay
-                scoreByInning={scoreByInning}
-                opponentName={game.opponentName}
-                currentInning={isLive ? game.currentInning : undefined}
-              />
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="plays">
-          <Card className="mt-3 border-gold/10 bg-white/[0.02]">
-            <CardContent className="py-4">
-              {recentPlays.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  No plays recorded yet.
-                </p>
-              ) : (
-                <div className="flex flex-col gap-2">
-                  {recentPlays.map((play) => (
-                    <div
-                      key={play.id}
-                      className="flex items-start gap-3 py-2 border-b border-gold/10 last:border-0"
-                    >
-                      <span className="text-xs font-bold text-gold bg-gold/10 rounded px-1.5 py-0.5 shrink-0 font-mono">
-                        {play.inning}
+      {/* Batting Order */}
+      <div>
+        <h3 className="text-sm font-bold text-gold/80 uppercase tracking-wider mb-2">Batting Order</h3>
+        {battingOrder.length === 0 ? (
+          <p className="text-sm text-muted-foreground py-4">No lineup set yet.</p>
+        ) : (
+          <div className="flex flex-col gap-0.5">
+            {battingOrder
+              .sort((a, b) => a.battingSlot - b.battingSlot)
+              .map((entry) => {
+                const player = playerMap.get(entry.playerId);
+                return (
+                  <div
+                    key={entry.battingSlot}
+                    className="flex items-center gap-3 rounded-lg bg-[hsl(0_0%_10%)] border border-[hsl(0_0%_16%)] px-3 py-2"
+                  >
+                    <span className="text-sm font-bold text-gold/60 w-6 text-center font-mono">
+                      {entry.battingSlot}
+                    </span>
+                    <span className="flex-1 text-sm font-medium text-white/90 truncate">
+                      {player
+                        ? playerFullName(player.firstName, player.lastName)
+                        : "Unknown"}
+                    </span>
+                    {player?.jerseyNumber && (
+                      <span className="text-xs text-gold/40 font-mono">
+                        #{player.jerseyNumber}
                       </span>
-                      <p className="text-sm text-white/80">{play.description}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+                    )}
+                  </div>
+                );
+              })}
+          </div>
+        )}
+      </div>
+
+      {/* Fielding - Inning 1 */}
+      {fieldingAssignments.length > 0 && (
+        <div>
+          <h3 className="text-sm font-bold text-gold/80 uppercase tracking-wider mb-2">Fielding - Inning 1</h3>
+          <div className="grid grid-cols-3 gap-1.5">
+            {fieldingAssignments
+              .filter((a) => a.inningNumber === 1)
+              .map((a) => {
+                const player = playerMap.get(a.playerId);
+                return (
+                  <div
+                    key={`${a.position}`}
+                    className="flex items-center gap-2 rounded-lg bg-[hsl(0_0%_10%)] border border-[hsl(0_0%_16%)] px-2.5 py-2"
+                  >
+                    <span className="text-[10px] font-bold text-gold/60 uppercase tracking-wider w-6">
+                      {a.position}
+                    </span>
+                    <span className="text-xs font-medium truncate text-white/80">
+                      {player ? player.firstName : "-"}
+                    </span>
+                  </div>
+                );
+              })}
+          </div>
+        </div>
+      )}
 
       {/* Go Live / Start Game Button */}
       {!isLive && !isFinal && (
