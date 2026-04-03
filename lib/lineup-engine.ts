@@ -57,10 +57,6 @@ function positionScore(suit: PlayerSuitability, pos: Position): number {
   }
 }
 
-function isOutfieldPosition(pos: Position, outfieldPositions: Position[]): boolean {
-  return outfieldPositions.includes(pos);
-}
-
 // ─── Mode Weights ──────────────────────────────────────────────────────
 
 interface ModeWeights {
@@ -78,6 +74,9 @@ function getModeWeights(mode: CoachMode): ModeWeights {
 }
 
 // ─── Fielding Generation ───────────────────────────────────────────────
+// Uses block-based rotation: 6 innings split into 3 blocks of 2.
+// Every player MUST change position between blocks.
+// This guarantees max 2 consecutive innings at any position.
 
 interface FieldingContext {
   playerIds: string[];
@@ -93,280 +92,115 @@ function makeFieldingKey(inning: number, position: Position): string {
   return `${inning}-${position}`;
 }
 
-/**
- * Core rule: no player at the same position more than 2 consecutive innings.
- * All players must be assigned every inning (when playerCount <= positionCount).
- * Younger/less-skilled players weighted toward outfield.
- */
 export function generateFieldingPlan(ctx: FieldingContext): FieldingAssignment[] {
   const weights = getModeWeights(ctx.mode);
   const assignments: FieldingAssignment[] = [];
+  const numPlayers = ctx.playerIds.length;
+  const numPositions = ctx.positions.length;
 
-  // Track consecutive innings at each position per player
-  // positionStreak[playerId][position] = consecutive innings at that position ending at previous inning
-  const positionStreak = new Map<string, Map<Position, number>>();
-  const inningsAssigned = new Map<string, number>();
+  // Split 6 innings into 3 blocks of 2
+  const blocks: number[][] = [[1, 2], [3, 4], [5, 6]];
 
-  ctx.playerIds.forEach((id) => {
-    positionStreak.set(id, new Map());
-    inningsAssigned.set(id, 0);
-  });
+  // For each block, create a complete assignment (player -> position)
+  // Between blocks, every player must change position
+  const blockAssignments: Map<string, Position>[] = []; // playerId -> position per block
 
-  // Plan catchers first (blocks of max 2 innings)
-  const catcherPlan = planCatcherBlocks(ctx);
+  for (let blockIdx = 0; blockIdx < blocks.length; blockIdx++) {
+    const prevAssignment = blockIdx > 0 ? blockAssignments[blockIdx - 1] : null;
 
-  for (const inning of INNINGS) {
-    const assignedThisInning = new Map<Position, string>();
-    const usedThisInning = new Set<string>();
+    // Score each (player, position) pair
+    const scores: { playerId: string; position: Position; score: number }[] = [];
 
-    // 1. Apply locked assignments
-    for (const pos of ctx.positions) {
-      const key = makeFieldingKey(inning, pos);
-      const locked = ctx.lockedFielding.get(key);
-      if (locked) {
-        assignedThisInning.set(pos, locked.playerId);
-        usedThisInning.add(locked.playerId);
-      }
-    }
-
-    // 2. Assign catcher if not locked
-    if (!assignedThisInning.has("C")) {
-      const catcherId = catcherPlan.get(inning);
-      if (catcherId && !usedThisInning.has(catcherId)) {
-        assignedThisInning.set("C", catcherId);
-        usedThisInning.add(catcherId);
-      }
-    }
-
-    // 3. Assign infield positions: P, 1B, 3B, SS, 2B
-    const infieldOrder: Position[] = ["P", "1B", "3B", "SS", "2B"];
-    for (const pos of infieldOrder) {
-      if (!ctx.positions.includes(pos)) continue;
-      if (assignedThisInning.has(pos)) continue;
-      const best = pickBestForPosition(
-        pos, inning, ctx, usedThisInning, positionStreak, inningsAssigned, weights
-      );
-      if (best) {
-        assignedThisInning.set(pos, best);
-        usedThisInning.add(best);
-      }
-    }
-
-    // 4. Assign outfield positions
-    for (const pos of ctx.outfieldPositions) {
-      if (assignedThisInning.has(pos)) continue;
-      const best = pickBestForPosition(
-        pos, inning, ctx, usedThisInning, positionStreak, inningsAssigned, weights
-      );
-      if (best) {
-        assignedThisInning.set(pos, best);
-        usedThisInning.add(best);
-      }
-    }
-
-    // 5. Fill any remaining empty spots with remaining players
-    const emptyPositions = ctx.positions.filter((p) => !assignedThisInning.has(p));
-    const remainingPlayers = ctx.playerIds.filter((id) => !usedThisInning.has(id));
-
-    // Sort remaining players — prefer weaker/younger for outfield spots
-    for (let i = 0; i < Math.min(emptyPositions.length, remainingPlayers.length); i++) {
-      assignedThisInning.set(emptyPositions[i], remainingPlayers[i]);
-      usedThisInning.add(remainingPlayers[i]);
-    }
-
-    // Update position streaks
     for (const playerId of ctx.playerIds) {
-      const streaks = positionStreak.get(playerId)!;
-      const assignedPos = Array.from(assignedThisInning.entries()).find(
-        ([_, pid]) => pid === playerId
-      );
-      if (assignedPos) {
-        const pos = assignedPos[0];
-        // Increment streak for the assigned position, reset all others
-        for (const p of ctx.positions) {
-          if (p === pos) {
-            streaks.set(p, (streaks.get(p) || 0) + 1);
-          } else {
-            streaks.set(p, 0);
+      const suit = ctx.suitabilities.get(playerId)!;
+      const hist = ctx.histories.get(playerId);
+      const prevPos = prevAssignment?.get(playerId);
+
+      for (const pos of ctx.positions) {
+        // HARD RULE: can't stay at same position between blocks
+        if (prevPos === pos) continue;
+
+        const isOutfield = ctx.outfieldPositions.includes(pos);
+
+        // Base suitability
+        let score = positionScore(suit, pos) * weights.suitability * 2;
+
+        // Development: younger/weaker players get outfield bonus
+        if (isOutfield) {
+          if (suit.ageOnGameDate < 10) score += 0.6 * weights.development;
+          if (suit.battingTier === "weaker") score += 0.4 * weights.development;
+        }
+
+        // History: prefer positions played less
+        if (hist) {
+          const posCount = hist.positionCounts[pos] || 0;
+          const totalPos = Object.values(hist.positionCounts).reduce((a, b) => a + b, 0);
+          if (totalPos > 0) {
+            score += (1 - posCount / totalPos) * weights.fairness;
           }
         }
-      } else {
-        // Not assigned this inning — reset all streaks
-        for (const p of ctx.positions) {
-          streaks.set(p, 0);
+
+        // Variety bonus: avoid positions from 2 blocks ago too
+        if (blockIdx >= 2) {
+          const twoBlocksAgoPos = blockAssignments[blockIdx - 2]?.get(playerId);
+          if (twoBlocksAgoPos === pos) score -= 0.5;
         }
+
+        // Small randomness for variety
+        score += Math.random() * 0.15;
+
+        scores.push({ playerId, position: pos, score });
       }
     }
 
-    // Update innings assigned
-    Array.from(assignedThisInning.entries()).forEach(([_, playerId]) => {
-      inningsAssigned.set(playerId, (inningsAssigned.get(playerId) || 0) + 1);
-    });
+    // Greedy assignment: pick highest-scored pairs, ensuring each player
+    // and each position is used at most once
+    scores.sort((a, b) => b.score - a.score);
 
-    // Convert to assignment objects
-    Array.from(assignedThisInning.entries()).forEach(([pos, playerId]) => {
-      assignments.push({
-        inningNumber: inning,
-        position: pos,
-        playerId,
-        assignmentType: "planned",
-      });
-    });
+    const assignedPlayers = new Set<string>();
+    const assignedPositions = new Set<Position>();
+    const blockMap = new Map<string, Position>();
+
+    for (const { playerId, position, score } of scores) {
+      if (assignedPlayers.has(playerId)) continue;
+      if (assignedPositions.has(position)) continue;
+
+      blockMap.set(playerId, position);
+      assignedPlayers.add(playerId);
+      assignedPositions.add(position);
+
+      if (assignedPlayers.size >= Math.min(numPlayers, numPositions)) break;
+    }
+
+    // If some positions still unassigned (shouldn't happen normally),
+    // force-assign remaining players
+    const emptyPositions = ctx.positions.filter((p) => !assignedPositions.has(p));
+    const remainingPlayers = ctx.playerIds.filter((id) => !assignedPlayers.has(id));
+    for (let i = 0; i < Math.min(emptyPositions.length, remainingPlayers.length); i++) {
+      blockMap.set(remainingPlayers[i], emptyPositions[i]);
+    }
+
+    blockAssignments.push(blockMap);
+
+    // Create assignments for both innings in this block
+    for (const inning of blocks[blockIdx]) {
+      for (const [playerId, position] of Array.from(blockMap.entries())) {
+        // Check for locked overrides
+        const key = makeFieldingKey(inning, position);
+        const locked = ctx.lockedFielding.get(key);
+        if (locked && locked.playerId !== playerId) continue;
+
+        assignments.push({
+          inningNumber: inning,
+          position,
+          playerId,
+          assignmentType: "planned",
+        });
+      }
+    }
   }
 
   return assignments;
-}
-
-function pickBestForPosition(
-  position: Position,
-  inning: number,
-  ctx: FieldingContext,
-  usedThisInning: Set<string>,
-  positionStreak: Map<string, Map<Position, number>>,
-  inningsAssigned: Map<string, number>,
-  weights: ModeWeights
-): string | null {
-  const isOutfield = ctx.outfieldPositions.includes(position);
-
-  const candidates = ctx.playerIds.filter((id) => {
-    if (usedThisInning.has(id)) return false;
-    // CORE RULE: no player at the same position for more than 2 consecutive innings
-    const streak = positionStreak.get(id)?.get(position) || 0;
-    if (streak >= 2) return false;
-    return true;
-  });
-
-  if (candidates.length === 0) {
-    // Fallback: relax the streak rule and pick anyone not yet used
-    const fallback = ctx.playerIds.filter((id) => !usedThisInning.has(id));
-    if (fallback.length === 0) return null;
-    // Pick the one with lowest streak at this position
-    fallback.sort((a, b) => {
-      const sa = positionStreak.get(a)?.get(position) || 0;
-      const sb = positionStreak.get(b)?.get(position) || 0;
-      return sa - sb;
-    });
-    return fallback[0];
-  }
-
-  const scored = candidates.map((id) => {
-    const suit = ctx.suitabilities.get(id)!;
-    const hist = ctx.histories.get(id);
-
-    // Base suitability for this position
-    const suitScore = positionScore(suit, position);
-
-    // Fairness: prefer players with fewer innings assigned so far
-    const totalInnings = inningsAssigned.get(id) || 0;
-    const maxPossible = INNINGS.length;
-    const fairnessScore = 1 - totalInnings / maxPossible;
-
-    // Development: younger/weaker players get bonus for outfield,
-    // stronger/older get bonus for key infield
-    let devScore = 0;
-    if (isOutfield) {
-      // Younger players get strong outfield bonus
-      if (suit.ageOnGameDate < 10) devScore += 0.6;
-      // Weaker fielders get outfield bonus (outfield is more forgiving)
-      if (suit.battingTier === "weaker") devScore += 0.4;
-      // Lower fielding score = more outfield
-      devScore += (5 - suit.pitcherScore) * 0.1;
-    } else {
-      // Infield: prefer better fielders
-      if (suit.ageOnGameDate >= 10) devScore += 0.3;
-    }
-
-    // History: prefer positions the player hasn't played much
-    let histScore = 0;
-    if (hist) {
-      const posCount = hist.positionCounts[position] || 0;
-      const totalPosInnings = Object.values(hist.positionCounts).reduce(
-        (a, b) => a + b, 0
-      );
-      histScore = totalPosInnings > 0 ? 1 - posCount / totalPosInnings : 0.5;
-    }
-
-    // Streak penalty: if already at this position for 1 inning, penalize
-    // to encourage rotation even before hitting the hard cap of 2
-    const currentStreak = positionStreak.get(id)?.get(position) || 0;
-    const streakPenalty = currentStreak * 0.8;
-
-    const total =
-      suitScore * weights.suitability * 2 +
-      fairnessScore * weights.fairness * 2 +
-      devScore * weights.development * 2 +
-      histScore * weights.fairness -
-      streakPenalty +
-      Math.random() * 0.2;
-
-    return { id, score: total };
-  });
-
-  scored.sort((a, b) => b.score - a.score);
-  return scored[0]?.id ?? null;
-}
-
-function planCatcherBlocks(ctx: FieldingContext): Map<number, string> {
-  const plan = new Map<number, string>();
-
-  const catcherCandidates = ctx.playerIds
-    .map((id) => ({
-      id,
-      score: ctx.suitabilities.get(id)!.catcherScore,
-      hist: ctx.histories.get(id),
-    }))
-    .sort((a, b) => {
-      const aConsec = a.hist?.consecutiveGamesCaught ?? 0;
-      const bConsec = b.hist?.consecutiveGamesCaught ?? 0;
-      if (aConsec !== bConsec) return aConsec - bConsec;
-      const aTotal = a.hist?.totalCatcherInnings ?? 0;
-      const bTotal = b.hist?.totalCatcherInnings ?? 0;
-      if (aTotal !== bTotal) return aTotal - bTotal;
-      return b.score - a.score;
-    });
-
-  if (catcherCandidates.length === 0) return plan;
-
-  const lockedCatcherInnings = new Set<number>();
-  for (const inning of INNINGS) {
-    const key = makeFieldingKey(inning, "C");
-    const locked = ctx.lockedFielding.get(key);
-    if (locked) {
-      plan.set(inning, locked.playerId);
-      lockedCatcherInnings.add(inning);
-    }
-  }
-
-  const unlockedInnings = INNINGS.filter((i) => !lockedCatcherInnings.has(i));
-  if (unlockedInnings.length === 0) return plan;
-
-  // Max 2 consecutive innings per catcher
-  const blockSizes = splitIntoBlocks(unlockedInnings.length, 2);
-  let inningIdx = 0;
-  let catcherIdx = 0;
-
-  for (const blockSize of blockSizes) {
-    const catcherId = catcherCandidates[catcherIdx % catcherCandidates.length].id;
-    for (let i = 0; i < blockSize && inningIdx < unlockedInnings.length; i++) {
-      plan.set(unlockedInnings[inningIdx], catcherId);
-      inningIdx++;
-    }
-    catcherIdx++;
-  }
-
-  return plan;
-}
-
-function splitIntoBlocks(total: number, maxBlock: number): number[] {
-  if (total <= maxBlock) return [total];
-  const blocks: number[] = [];
-  let remaining = total;
-  while (remaining > 0) {
-    const size = Math.min(maxBlock, remaining);
-    blocks.push(size);
-    remaining -= size;
-  }
-  return blocks;
 }
 
 // ─── Batting Order Generation ──────────────────────────────────────────
@@ -411,13 +245,12 @@ export function generateBattingOrder(
   }
 
   // Sort each tier by historical batting position to rotate
-  // Players who batted later last time should bat earlier this time
   sortByHistoryRotation(strong, histories);
   sortByHistoryRotation(medium, histories);
   sortByHistoryRotation(weaker, histories);
 
   // Interleave: spread strong batters, separate weaker batters
-  const orderedPlayers = interleaveWithSeparation(strong, medium, weaker, totalSlots);
+  const orderedPlayers = interleaveWithSeparation(strong, medium, weaker);
 
   const result: BattingOrderEntry[] = [];
   Array.from(lockedSlots.entries()).forEach(([slot, playerId]) => {
@@ -431,24 +264,17 @@ export function generateBattingOrder(
   return result;
 }
 
-/**
- * Sort players within a tier so that those who batted later in
- * previous games move toward the front (earlier slots) this time.
- * This creates natural rotation game-to-game.
- */
 function sortByHistoryRotation(players: string[], histories: Map<string, PlayerHistory>): void {
   players.sort((a, b) => {
     const histA = histories.get(a);
     const histB = histories.get(b);
 
-    // Players who were at the bottom last time get moved up
     const lastSlotA = histA?.lastBattingSlot ?? 0;
     const lastSlotB = histB?.lastBattingSlot ?? 0;
 
-    // Higher last slot = should bat earlier now (lower slot number)
+    // Higher last slot = should bat earlier now
     if (lastSlotA !== lastSlotB) return lastSlotB - lastSlotA;
 
-    // Break ties with average historical slot
     const avgA = histA && histA.battingSlots.length > 0
       ? histA.battingSlots.reduce((sum, s) => sum + s, 0) / histA.battingSlots.length
       : 5;
@@ -457,35 +283,26 @@ function sortByHistoryRotation(players: string[], histories: Map<string, PlayerH
       : 5;
 
     if (avgA !== avgB) return avgB - avgA;
-
-    // Final tiebreaker: random
     return Math.random() - 0.5;
   });
 }
 
-/**
- * Place players so that:
- * 1. Strong batters are spread throughout (not clumped)
- * 2. Two or more weaker batters never appear back-to-back
- * 3. Medium batters fill gaps
- */
 function interleaveWithSeparation(
   strong: string[],
   medium: string[],
-  weaker: string[],
-  totalSlots: number
+  weaker: string[]
 ): string[] {
   const total = strong.length + medium.length + weaker.length;
   if (total === 0) return [];
 
   const result = new Array<string | null>(total).fill(null);
+  const weakerSet = new Set(weaker);
 
-  // Step 1: Place strong batters evenly spaced
+  // Place strong batters evenly spaced
   if (strong.length > 0) {
     const spacing = Math.max(1, Math.floor(total / (strong.length + 1)));
     for (let i = 0; i < strong.length; i++) {
       const targetIdx = Math.min((i + 1) * spacing - 1, total - 1);
-      // Find closest empty slot to target
       let placed = false;
       for (let offset = 0; offset < total && !placed; offset++) {
         for (const dir of [0, 1, -1]) {
@@ -500,21 +317,17 @@ function interleaveWithSeparation(
     }
   }
 
-  // Step 2: Place weaker batters in remaining slots, ensuring no two are adjacent
-  const weakerSet = new Set(weaker);
+  // Place weaker batters ensuring no two are adjacent
   let weakerIdx = 0;
   for (let i = 0; i < total && weakerIdx < weaker.length; i++) {
     if (result[i] !== null) continue;
-
-    // Check if placing a weaker batter here would create back-to-back
     const prevIsWeaker = i > 0 && result[i - 1] !== null && weakerSet.has(result[i - 1]!);
     if (!prevIsWeaker) {
       result[i] = weaker[weakerIdx];
       weakerIdx++;
     }
   }
-
-  // If we couldn't place all weaker batters without adjacency, place remaining anyway
+  // Place remaining weaker if couldn't avoid adjacency
   for (let i = 0; i < total && weakerIdx < weaker.length; i++) {
     if (result[i] === null) {
       result[i] = weaker[weakerIdx];
@@ -522,7 +335,7 @@ function interleaveWithSeparation(
     }
   }
 
-  // Step 3: Fill remaining spots with medium batters
+  // Fill remaining with medium
   let medIdx = 0;
   for (let i = 0; i < total && medIdx < medium.length; i++) {
     if (result[i] === null) {
@@ -531,13 +344,9 @@ function interleaveWithSeparation(
     }
   }
 
-  // Step 4: Final pass — swap any remaining consecutive weaker batters
+  // Final pass: swap consecutive weaker batters
   for (let i = 0; i < total - 1; i++) {
-    if (
-      result[i] && result[i + 1] &&
-      weakerSet.has(result[i]!) && weakerSet.has(result[i + 1]!)
-    ) {
-      // Find a non-weaker batter to swap with
+    if (result[i] && result[i + 1] && weakerSet.has(result[i]!) && weakerSet.has(result[i + 1]!)) {
       for (let j = i + 2; j < total; j++) {
         if (result[j] && !weakerSet.has(result[j]!)) {
           [result[i + 1], result[j]] = [result[j], result[i + 1]];
@@ -548,13 +357,6 @@ function interleaveWithSeparation(
   }
 
   return result.filter((p): p is string => p !== null);
-}
-
-function shuffle<T>(arr: T[]): void {
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-  }
 }
 
 // ─── Full Lineup Generation ───────────────────────────────────────────
