@@ -372,6 +372,8 @@ export default function LineupEditorPage() {
               assignments={fieldingAssignments}
               players={players}
               onCellClick={lineupLocked ? undefined : handleCellClick}
+              defensiveFormat={(game?.defensiveFormat as import("@/lib/types").DefensiveFormat) || "four_outfield"}
+              allPlayerIds={battingOrder.map((b) => b.playerId)}
             />
           </div>
         </TabsContent>

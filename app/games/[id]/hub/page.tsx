@@ -277,15 +277,14 @@ export default function GameHubPage() {
         </TabsList>
 
         <TabsContent value="lineup">
-          <Card className="mt-3 border-gold/10 bg-white/[0.02]">
-            <CardHeader>
-              <CardTitle className="text-sm text-gold-gradient">Batting Order</CardTitle>
-            </CardHeader>
-            <CardContent>
+          <div className="mt-3 space-y-4">
+            {/* Batting Order */}
+            <div>
+              <h3 className="text-sm font-bold text-gold-gradient mb-2">Batting Order</h3>
               {battingOrder.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No lineup set yet.</p>
               ) : (
-                <div className="flex flex-col gap-1">
+                <div className="flex flex-col gap-0.5">
                   {battingOrder
                     .sort((a, b) => a.battingSlot - b.battingSlot)
                     .map((entry) => {
@@ -293,12 +292,12 @@ export default function GameHubPage() {
                       return (
                         <div
                           key={entry.battingSlot}
-                          className="flex items-center gap-3 py-1.5 border-b border-gold/10 last:border-0"
+                          className="flex items-center gap-3 rounded-lg bg-[hsl(0_0%_10%)] border border-[hsl(0_0%_16%)] px-3 py-2"
                         >
-                          <span className="text-xs font-bold text-gold/50 w-5 text-right font-mono">
+                          <span className="text-sm font-bold text-gold/60 w-6 text-center font-mono">
                             {entry.battingSlot}
                           </span>
-                          <span className="text-sm font-medium text-white/90">
+                          <span className="flex-1 text-sm font-medium text-white/90 truncate">
                             {player
                               ? playerFullName(player.firstName, player.lastName)
                               : "Unknown"}
@@ -313,17 +312,13 @@ export default function GameHubPage() {
                     })}
                 </div>
               )}
-            </CardContent>
-          </Card>
+            </div>
 
-          {/* Mini fielding summary */}
-          {fieldingAssignments.length > 0 && (
-            <Card className="mt-3 border-gold/10 bg-white/[0.02]">
-              <CardHeader>
-                <CardTitle className="text-sm text-gold-gradient">Fielding - Inning 1</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-3 gap-2">
+            {/* Fielding - Inning 1 */}
+            {fieldingAssignments.length > 0 && (
+              <div>
+                <h3 className="text-sm font-bold text-gold-gradient mb-2">Fielding - Inning 1</h3>
+                <div className="grid grid-cols-3 gap-1.5">
                   {fieldingAssignments
                     .filter((a) => a.inningNumber === 1)
                     .map((a) => {
@@ -331,21 +326,21 @@ export default function GameHubPage() {
                       return (
                         <div
                           key={`${a.position}`}
-                          className="flex flex-col items-center gap-0.5 rounded-lg bg-gold/5 border border-gold/10 p-2"
+                          className="flex items-center gap-2 rounded-lg bg-[hsl(0_0%_10%)] border border-[hsl(0_0%_16%)] px-2.5 py-2"
                         >
-                          <span className="text-[10px] font-bold text-gold/50 uppercase tracking-wider">
+                          <span className="text-[10px] font-bold text-gold/60 uppercase tracking-wider w-6">
                             {a.position}
                           </span>
-                          <span className="text-xs font-medium truncate max-w-full text-white/80">
+                          <span className="text-xs font-medium truncate text-white/80">
                             {player ? player.firstName : "-"}
                           </span>
                         </div>
                       );
                     })}
                 </div>
-              </CardContent>
-            </Card>
-          )}
+              </div>
+            )}
+          </div>
         </TabsContent>
 
         <TabsContent value="scoring">
