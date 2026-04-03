@@ -62,13 +62,15 @@ export default function PlayerProfilePage() {
   const [data, setData] = useState<PlayerProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [isCoach, setIsCoach] = useState(false);
+  const [isManager, setIsManager] = useState(false);
 
   useEffect(() => {
     fetch("/api/auth/me")
       .then((r) => r.json())
       .then((d) => {
-        const role = d?.role ?? "";
+        const role = d?.team?.role ?? "";
         setIsCoach(["head_coach", "assistant_coach", "admin"].includes(role));
+        setIsManager(["head_coach", "admin"].includes(role));
       })
       .catch(() => {});
   }, []);
@@ -164,8 +166,8 @@ export default function PlayerProfilePage() {
         </div>
       </div>
 
-      {/* Ratings — coaches only */}
-      {isCoach && (
+      {/* Ratings — managers only */}
+      {isManager && (
         <Card>
           <CardContent className="py-4">
             <div className="flex items-center justify-around">

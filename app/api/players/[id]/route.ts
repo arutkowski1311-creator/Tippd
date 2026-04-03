@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { getSession, ensureUserTeam, isCoachRole } from "@/lib/auth";
+import { getSession, ensureUserTeam, isCoachRole, isManagerRole } from "@/lib/auth";
 
 async function getTeamContext() {
   const session = await getSession();
@@ -30,8 +30,8 @@ export async function GET(
       );
     }
 
-    // Strip ratings for non-coaches
-    if (!isCoachRole(role)) {
+    // Strip ratings for non-managers (assistant coaches can't see ratings)
+    if (!isManagerRole(role)) {
       return NextResponse.json({
         ...player,
         fieldingOverall: 0,

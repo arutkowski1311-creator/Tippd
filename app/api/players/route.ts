@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { getSession, ensureUserTeam, isCoachRole } from "@/lib/auth";
+import { getSession, ensureUserTeam, isCoachRole, isManagerRole } from "@/lib/auth";
 
 async function getTeamContext() {
   const session = await getSession();
@@ -14,15 +14,15 @@ async function getTeamContext() {
 export async function GET() {
   try {
     const { teamId, role } = await getTeamContext();
-    const isCoach = isCoachRole(role);
+    const isManager = isManagerRole(role);
 
     const players = await prisma.player.findMany({
       where: { teamId, active: true },
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
     });
 
-    // Strip rating fields for non-coach users
-    if (!isCoach) {
+    // Strip rating fields for non-manager users (assistant coaches can't see ratings)
+    if (!isManager) {
       const sanitized = players.map((p) => ({
         id: p.id,
         teamId: p.teamId,

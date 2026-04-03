@@ -194,7 +194,7 @@ export default function InvitesPage() {
                   <option value="parent">Parent / Guardian</option>
                   <option value="assistant_coach">Assistant Coach</option>
                   <option value="scorekeeper">Scorekeeper</option>
-                  <option value="head_coach">Head Coach</option>
+                  <option value="head_coach">Manager</option>
                 </select>
               </div>
 
@@ -264,8 +264,8 @@ export default function InvitesPage() {
                         >
                           {invite.status}
                         </Badge>
-                        <span className="text-xs text-muted-foreground">
-                          {invite.role.replace("_", " ")}
+                        <span className="text-xs text-muted-foreground capitalize">
+                          {invite.role === "head_coach" ? "Manager" : invite.role.replace("_", " ")}
                         </span>
                       </div>
                       {invite.linkedPlayer && (

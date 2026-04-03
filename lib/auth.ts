@@ -171,13 +171,34 @@ export async function ensureUserTeam(userId: string) {
   return membership;
 }
 
+// Coach roles: can manage games, players, lineups, invites
 const COACH_ROLES = ["head_coach", "assistant_coach", "admin"];
+
+// Manager roles: can see player ratings (head_coach = "Manager" in UI)
+const MANAGER_ROLES = ["head_coach", "admin"];
 
 export function isCoachRole(role: string): boolean {
   return COACH_ROLES.includes(role);
 }
 
+export function isManagerRole(role: string): boolean {
+  return MANAGER_ROLES.includes(role);
+}
+
 export async function getUserRole(userId: string): Promise<string | null> {
   const membership = await getUserTeam(userId);
   return membership?.role ?? null;
+}
+
+/** Display-friendly role label */
+export function roleLabel(role: string): string {
+  switch (role) {
+    case "head_coach": return "Manager";
+    case "assistant_coach": return "Assistant Coach";
+    case "admin": return "Admin";
+    case "scorekeeper": return "Scorekeeper";
+    case "parent": return "Parent";
+    case "member": return "Member";
+    default: return role;
+  }
 }

@@ -27,10 +27,10 @@ export default function RatingWizardPage() {
     fetch("/api/auth/me")
       .then((r) => r.json())
       .then((d) => {
-        const role = d?.role ?? "";
-        const coach = ["head_coach", "assistant_coach", "admin"].includes(role);
-        setIsCoach(coach);
-        if (!coach) router.push("/roster");
+        const role = d?.team?.role ?? "";
+        const manager = ["head_coach", "admin"].includes(role);
+        setIsCoach(manager);
+        if (!manager) router.push("/roster");
       })
       .catch(() => router.push("/roster"));
   }, [router]);

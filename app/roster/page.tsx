@@ -27,6 +27,7 @@ import { RatingInput } from "@/components/softball/rating-input";
 import type { PlayerData } from "@/lib/types";
 
 const COACH_ROLES = ["head_coach", "assistant_coach", "admin"];
+const MANAGER_ROLES = ["head_coach", "admin"];
 
 export default function RosterPage() {
   const [players, setPlayers] = useState<PlayerData[]>([]);
@@ -38,6 +39,7 @@ export default function RosterPage() {
   const [userRole, setUserRole] = useState<string | null>(null);
 
   const isCoach = userRole !== null && COACH_ROLES.includes(userRole);
+  const isManager = userRole !== null && MANAGER_ROLES.includes(userRole);
 
   // Edit form state
   const [editForm, setEditForm] = useState({
@@ -262,7 +264,7 @@ export default function RosterPage() {
               player={player}
               onEdit={isCoach ? () => openEdit(player) : undefined}
               compact
-              showRatings={isCoach}
+              showRatings={isManager}
             />
           ))}
         </div>
@@ -304,26 +306,30 @@ export default function RosterPage() {
                   }
                 />
               </div>
-              <RatingInput
-                label="Fielding"
-                value={editForm.fieldingOverall}
-                onChange={(v) => setEditForm((f) => ({ ...f, fieldingOverall: v }))}
-              />
-              <RatingInput
-                label="Catching"
-                value={editForm.catching}
-                onChange={(v) => setEditForm((f) => ({ ...f, catching: v }))}
-              />
-              <RatingInput
-                label="Throwing"
-                value={editForm.throwing}
-                onChange={(v) => setEditForm((f) => ({ ...f, throwing: v }))}
-              />
-              <RatingInput
-                label="Batting"
-                value={editForm.battingOverall}
-                onChange={(v) => setEditForm((f) => ({ ...f, battingOverall: v }))}
-              />
+              {isManager && (
+                <>
+                  <RatingInput
+                    label="Fielding"
+                    value={editForm.fieldingOverall}
+                    onChange={(v) => setEditForm((f) => ({ ...f, fieldingOverall: v }))}
+                  />
+                  <RatingInput
+                    label="Catching"
+                    value={editForm.catching}
+                    onChange={(v) => setEditForm((f) => ({ ...f, catching: v }))}
+                  />
+                  <RatingInput
+                    label="Throwing"
+                    value={editForm.throwing}
+                    onChange={(v) => setEditForm((f) => ({ ...f, throwing: v }))}
+                  />
+                  <RatingInput
+                    label="Batting"
+                    value={editForm.battingOverall}
+                    onChange={(v) => setEditForm((f) => ({ ...f, battingOverall: v }))}
+                  />
+                </>
+              )}
             </div>
             <SheetFooter>
               <Button onClick={saveEdit} disabled={saving} className="w-full bg-cardinal-gradient border-cardinal-bright/30 text-white hover:opacity-90">
