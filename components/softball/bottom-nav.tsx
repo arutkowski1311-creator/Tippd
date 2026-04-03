@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Users, Calendar } from "lucide-react";
+import { Home, Users, Calendar, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
   { href: "/", label: "Home", icon: Home },
   { href: "/roster", label: "Roster", icon: Users },
   { href: "/games", label: "Games", icon: Calendar },
+  { href: "/account", label: "Account", icon: Settings },
 ] as const;
 
 export function BottomNav() {

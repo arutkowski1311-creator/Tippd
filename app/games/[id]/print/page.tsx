@@ -178,8 +178,15 @@ export default function PrintPage() {
           </table>
         </div>
 
-        {/* Scorecard */}
-        <div>
+        {/* Page break before scorecard */}
+        <div className="print-break">
+          {/* Repeat header on scorecard page for context */}
+          <div className="hidden print-only text-center mb-4 border-b pb-3">
+            <h1 className="text-xl font-bold">
+              Team vs {game.opponentName}
+            </h1>
+            <p className="text-sm">{formatDate(game.gameDate)}</p>
+          </div>
           <h2 className="text-lg font-bold mb-3 border-b pb-1">Scorecard</h2>
           <table className="w-full text-sm border-collapse">
             <thead>
