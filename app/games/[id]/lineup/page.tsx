@@ -14,7 +14,7 @@ import {
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+// Using simple state toggle instead of Tabs component
 import {
   Dialog,
   DialogContent,
@@ -56,6 +56,8 @@ export default function LineupEditorPage() {
   const [warnings, setWarnings] = useState<ValidationWarning[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  const [activeTab, setActiveTab] = useState<"batting" | "fielding">("batting");
 
   // Position picker dialog
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -309,78 +311,88 @@ export default function LineupEditorPage() {
         </div>
       )}
 
-      <Tabs defaultValue="batting">
-        <TabsList className="w-full bg-[hsl(0_0%_10%)] border border-[hsl(0_0%_15%)]">
-          <TabsTrigger
-            value="batting"
-            className="flex-1 data-[state=active]:bg-[hsl(46_100%_50%/0.15)] data-[state=active]:text-[hsl(46_100%_50%)] data-[state=active]:shadow-[0_0_8px_hsl(46_100%_50%/0.2)]"
-          >
-            Batting Order
-          </TabsTrigger>
-          <TabsTrigger
-            value="fielding"
-            className="flex-1 data-[state=active]:bg-[hsl(46_100%_50%/0.15)] data-[state=active]:text-[hsl(46_100%_50%)] data-[state=active]:shadow-[0_0_8px_hsl(46_100%_50%/0.2)]"
-          >
-            Fielding
-          </TabsTrigger>
-        </TabsList>
+      {/* Tab toggle */}
+      <div className="flex rounded-lg bg-[hsl(0_0%_10%)] border border-[hsl(0_0%_15%)] p-0.5">
+        <button
+          type="button"
+          onClick={() => setActiveTab("batting")}
+          className={cn(
+            "flex-1 rounded-md py-2 text-sm font-medium transition-colors",
+            activeTab === "batting"
+              ? "bg-[hsl(46_100%_50%/0.15)] text-[hsl(46_100%_50%)]"
+              : "text-[hsl(0_0%_50%)] hover:text-[hsl(0_0%_70%)]"
+          )}
+        >
+          Batting Order
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("fielding")}
+          className={cn(
+            "flex-1 rounded-md py-2 text-sm font-medium transition-colors",
+            activeTab === "fielding"
+              ? "bg-[hsl(46_100%_50%/0.15)] text-[hsl(46_100%_50%)]"
+              : "text-[hsl(0_0%_50%)] hover:text-[hsl(0_0%_70%)]"
+          )}
+        >
+          Fielding
+        </button>
+      </div>
 
-        <TabsContent value="batting">
-          <div className="flex flex-col gap-1 mt-3">
-            {battingOrder.map((entry, index) => (
-              <div
-                key={entry.playerId}
-                className="flex items-center gap-2 rounded-lg bg-[hsl(0_0%_10%)] border border-[hsl(0_0%_16%)] px-3 py-2"
-              >
-                <span className="text-sm font-bold text-[hsl(46_100%_50%/0.7)] w-6 text-center">
-                  {entry.battingSlot}
-                </span>
-                <span className="flex-1 font-medium text-sm truncate text-[hsl(0_0%_93%)]">
-                  {entry.player
-                    ? playerFullName(entry.player.firstName, entry.player.lastName)
-                    : entry.playerId}
-                </span>
-                {/* Rating badge removed — coach-only info */}
-                {!lineupLocked && (
-                  <div className="flex flex-col">
-                    <button
-                      type="button"
-                      onClick={() => moveBatter(index, -1)}
-                      disabled={index === 0}
-                      className="p-0.5 text-[hsl(46_100%_50%/0.6)] hover:text-[hsl(46_100%_50%)] disabled:opacity-30 transition-colors"
-                    >
-                      <ArrowUp className="size-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => moveBatter(index, 1)}
-                      disabled={index === battingOrder.length - 1}
-                      className="p-0.5 text-[hsl(46_100%_50%/0.6)] hover:text-[hsl(46_100%_50%)] disabled:opacity-30 transition-colors"
-                    >
-                      <ArrowDown className="size-3.5" />
-                    </button>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </TabsContent>
+      {/* Batting Order */}
+      {activeTab === "batting" && (
+        <div className="flex flex-col gap-1">
+          {battingOrder.map((entry, index) => (
+            <div
+              key={entry.playerId}
+              className="flex items-center gap-2 rounded-lg bg-[hsl(0_0%_10%)] border border-[hsl(0_0%_16%)] px-3 py-2"
+            >
+              <span className="text-sm font-bold text-[hsl(46_100%_50%/0.7)] w-6 text-center">
+                {entry.battingSlot}
+              </span>
+              <span className="flex-1 font-medium text-sm truncate text-[hsl(0_0%_93%)]">
+                {entry.player
+                  ? playerFullName(entry.player.firstName, entry.player.lastName)
+                  : entry.playerId}
+              </span>
+              {!lineupLocked && (
+                <div className="flex flex-col">
+                  <button
+                    type="button"
+                    onClick={() => moveBatter(index, -1)}
+                    disabled={index === 0}
+                    className="p-0.5 text-[hsl(46_100%_50%/0.6)] hover:text-[hsl(46_100%_50%)] disabled:opacity-30 transition-colors"
+                  >
+                    <ArrowUp className="size-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => moveBatter(index, 1)}
+                    disabled={index === battingOrder.length - 1}
+                    className="p-0.5 text-[hsl(46_100%_50%/0.6)] hover:text-[hsl(46_100%_50%)] disabled:opacity-30 transition-colors"
+                  >
+                    <ArrowDown className="size-3.5" />
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
 
-        <TabsContent value="fielding">
-          <div className="mt-3">
-            <FieldingGrid
-              assignments={fieldingAssignments}
-              players={players}
-              onCellClick={lineupLocked ? undefined : handleCellClick}
-              defensiveFormat={(game?.defensiveFormat as import("@/lib/types").DefensiveFormat) || "four_outfield"}
-              allPlayerIds={battingOrder.map((b) => b.playerId)}
-            />
-          </div>
-        </TabsContent>
-      </Tabs>
+      {/* Fielding */}
+      {activeTab === "fielding" && (
+        <FieldingGrid
+          assignments={fieldingAssignments}
+          players={players}
+          onCellClick={lineupLocked ? undefined : handleCellClick}
+          defensiveFormat={(game?.defensiveFormat as import("@/lib/types").DefensiveFormat) || "four_outfield"}
+          allPlayerIds={battingOrder.map((b) => b.playerId)}
+        />
+      )}
 
       {/* Action buttons */}
-      <div className="fixed bottom-[4.5rem] inset-x-0 bg-[hsl(0_0%_7%/0.95)] backdrop-blur border-t border-[hsl(0_0%_15%)] px-4 py-3 z-40">
+      <div className="fixed bottom-[4rem] inset-x-0 bg-[hsl(0_0%_7%)] border-t border-[hsl(0_0%_20%)] px-4 py-2 z-50">
         <div className="max-w-lg mx-auto flex flex-wrap gap-2">
           {!lineupLocked && (
             <>
