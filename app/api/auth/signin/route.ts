@@ -4,16 +4,17 @@ import { signIn } from "@/lib/auth";
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { email, password } = body;
+    const { identifier, email, password } = body;
+    const loginId = identifier || email; // support both field names
 
-    if (!email || !password) {
+    if (!loginId || !password) {
       return NextResponse.json(
-        { error: "email and password are required" },
+        { error: "Username/email and password are required" },
         { status: 400 }
       );
     }
 
-    const user = await signIn(email, password);
+    const user = await signIn(loginId, password);
     return NextResponse.json(user);
   } catch (error) {
     if (error instanceof Error && error.message === "Invalid credentials") {

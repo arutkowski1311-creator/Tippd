@@ -7,7 +7,7 @@ import { PlayCircle } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -21,12 +21,12 @@ export default function LoginPage() {
       const res = await fetch("/api/auth/signin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ identifier, password }),
       });
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || "Invalid email or password");
+        throw new Error(data.error || "Invalid username or password");
       }
 
       router.push("/");
@@ -56,14 +56,16 @@ export default function LoginPage() {
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
               <label className="text-sm font-medium text-neutral-300">
-                Email
+                Username or Email
               </label>
               <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="coach@example.com"
+                type="text"
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
+                placeholder="Username or email"
                 required
+                autoCapitalize="none"
+                autoCorrect="off"
                 className="h-10 w-full rounded-lg border border-white/[0.08] bg-[hsl(0_0%_13%)] px-3 text-sm text-white placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-[hsl(46_100%_50%)]/40 focus:border-[hsl(46_100%_50%)]/50 transition-colors"
               />
             </div>

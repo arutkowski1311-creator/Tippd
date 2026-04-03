@@ -127,8 +127,12 @@ export async function signUp(email: string, password: string, name: string, invi
   return { id: user.id, email: user.email, name: user.name, teamName: invite.team.name };
 }
 
-export async function signIn(email: string, password: string) {
-  const user = await prisma.user.findUnique({ where: { email } });
+export async function signIn(identifier: string, password: string) {
+  // Try email first, then username
+  let user = await prisma.user.findUnique({ where: { email: identifier } });
+  if (!user) {
+    user = await prisma.user.findUnique({ where: { username: identifier } });
+  }
   if (!user) throw new Error("Invalid credentials");
 
   const valid = await bcrypt.compare(password, user.password);
