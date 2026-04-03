@@ -150,7 +150,7 @@ export default function NominatePage() {
               value={nomineeSearch}
               onChange={(e) => setNomineeSearch(e.target.value)}
               placeholder="Search by name..."
-              className="w-full pl-10 pr-4 py-3 bg-gray-50 rounded-xl text-sm border-0 focus:ring-2 focus:ring-indigo-500 outline-none"
+              className="w-full pl-10 pr-4 py-3 bg-gray-50 rounded-xl text-sm text-gray-900 placeholder:text-gray-400 border-0 focus:ring-2 focus:ring-indigo-500 outline-none"
             />
           </div>
         </div>
@@ -166,7 +166,7 @@ export default function NominatePage() {
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Describe what this person did — 1 to 3 sentences is perfect..."
               rows={3}
-              className="w-full px-4 py-3 bg-gray-50 rounded-xl text-sm border-0 focus:ring-2 focus:ring-indigo-500 outline-none resize-none"
+              className="w-full px-4 py-3 bg-gray-50 rounded-xl text-sm text-gray-900 placeholder:text-gray-400 border-0 focus:ring-2 focus:ring-indigo-500 outline-none resize-none"
             />
             <button
               onClick={toggleVoice}

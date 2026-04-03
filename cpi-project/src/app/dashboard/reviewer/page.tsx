@@ -155,7 +155,7 @@ function ReviewModal({
                   onChange={(e) => setNotes(e.target.value)}
                   placeholder="Any additional context..."
                   rows={2}
-                  className="w-full px-3 py-2 bg-gray-50 rounded-xl text-sm border-0 focus:ring-2 focus:ring-indigo-500 outline-none resize-none"
+                  className="w-full px-3 py-2 bg-gray-50 rounded-xl text-sm text-gray-900 placeholder:text-gray-400 border-0 focus:ring-2 focus:ring-indigo-500 outline-none resize-none"
                 />
               </div>
 
