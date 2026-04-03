@@ -15,6 +15,7 @@ import {
   Video,
   Sparkles,
   Loader2,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -58,6 +59,9 @@ export default function GameHubPage() {
   const [data, setData] = useState<HubData | null>(null);
   const [loading, setLoading] = useState(true);
   const [generatingRecap, setGeneratingRecap] = useState(false);
+  const [isManager, setIsManager] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     fetch(`/api/games/${gameId}/hub`)
@@ -68,7 +72,29 @@ export default function GameHubPage() {
       .then((d) => setData(d))
       .catch(() => toast.error("Failed to load game"))
       .finally(() => setLoading(false));
+
+    fetch("/api/auth/me")
+      .then((res) => res.json())
+      .then((d) => {
+        const role = d.team?.role;
+        if (role === "head_coach" || role === "admin") setIsManager(true);
+      })
+      .catch(() => {});
   }, [gameId]);
+
+  async function handleDeleteGame() {
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/games/${gameId}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete");
+      toast.success("Game deleted");
+      router.push("/games");
+    } catch {
+      toast.error("Failed to delete game");
+      setDeleting(false);
+      setShowDeleteConfirm(false);
+    }
+  }
 
   async function generateRecap() {
     setGeneratingRecap(true);
@@ -460,6 +486,45 @@ export default function GameHubPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Delete Game (Manager/Admin only) */}
+      {isManager && (
+        <div className="pt-4 border-t border-white/[0.06]">
+          {!showDeleteConfirm ? (
+            <Button
+              variant="outline"
+              className="w-full border-red-500/30 text-red-400 hover:bg-red-500/10 hover:text-red-300"
+              onClick={() => setShowDeleteConfirm(true)}
+            >
+              <Trash2 className="size-4 mr-2" />
+              Delete Game
+            </Button>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-sm text-red-400 text-center font-medium">
+                Are you sure? This cannot be undone.
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  className="flex-1 border-white/10"
+                  onClick={() => setShowDeleteConfirm(false)}
+                  disabled={deleting}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  className="flex-1 bg-red-600 hover:bg-red-500 text-white"
+                  onClick={handleDeleteGame}
+                  disabled={deleting}
+                >
+                  {deleting ? "Deleting..." : "Yes, Delete"}
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Livestream */}
       {game.livestreamUrl && (
