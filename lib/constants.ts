@@ -147,6 +147,11 @@ export const DUMPSTER_SIZE_INFO = {
 
 export const OVERAGE_PER_TON = 150;
 
+// ─── Deposit ───
+
+export const DEPOSIT_PERCENT = 0.25;
+export const DEPOSIT_CANCELLATION_HOURS = 48;
+
 // ─── Collections Cadence ───
 
 export const COLLECTION_SCHEDULE = [

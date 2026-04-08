@@ -58,6 +58,14 @@ export interface Job {
   daily_overage_charge: number;
   discount_amount: number;
   quote_id: string | null;
+  // Deposit
+  deposit_amount: number;
+  deposit_status: "none" | "pending" | "charged" | "refunded" | "forfeited";
+  stripe_checkout_session_id: string | null;
+  stripe_setup_intent_id: string | null;
+  stripe_payment_intent_id: string | null;
+  stripe_payment_method_id: string | null;
+  terms_accepted_at: string | null;
   // Dump tracking (Section 07)
   dump_location_id: string | null;
   dump_arrival_time: string | null;

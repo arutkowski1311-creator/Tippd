@@ -1,0 +1,563 @@
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ─── Auth & Team Models ────────────────────────────────────────────────
+
+model User {
+  id          String   @id @default(cuid())
+  email       String   @unique
+  username    String?  @unique
+  name        String
+  password    String
+  avatarUrl   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  memberships       TeamMembership[]
+  guardians         Guardian[]
+  playerFollowers   PlayerFollower[]
+  uploadedMedia     MediaItem[]
+  notifications     Notification[]
+  gameEvents        GameEvent[]      @relation("EventCreator")
+  lineupVersions    GameLineupVersion[] @relation("LineupCreator")
+}
+
+model Team {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  sport       String   @default("softball")
+  seasonLabel String?
+  logoUrl     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  players       Player[]
+  games         Game[]
+  memberships   TeamMembership[]
+  invites       Invite[]
+  mediaItems    MediaItem[]
+  notifications Notification[]
+}
+
+model TeamMembership {
+  id        String   @id @default(cuid())
+  teamId    String
+  userId    String
+  role      String   @default("member") // head_coach, assistant_coach, scorekeeper, parent, admin
+  status    String   @default("active") // active, invited, inactive
+  createdAt DateTime @default(now())
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, userId])
+  @@index([teamId])
+  @@index([userId])
+}
+
+model Invite {
+  id              String   @id @default(cuid())
+  teamId          String
+  email           String
+  role            String   @default("parent") // head_coach, assistant_coach, scorekeeper, parent
+  invitedByUserId String
+  linkedPlayerId  String?  // optional: link this invite to a specific player (for parent accounts)
+  token           String   @unique @default(cuid())
+  status          String   @default("pending") // pending, accepted, expired, revoked
+  expiresAt       DateTime
+  acceptedAt      DateTime?
+  acceptedUserId  String?  // the user who accepted
+  createdAt       DateTime @default(now())
+
+  team          Team    @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  linkedPlayer  Player? @relation("InvitedForPlayer", fields: [linkedPlayerId], references: [id], onDelete: SetNull)
+
+  @@index([email])
+  @@index([token])
+  @@index([teamId])
+}
+
+// ─── Player Models ─────────────────────────────────────────────────────
+
+model Player {
+  id              String   @id @default(cuid())
+  teamId          String
+  firstName       String
+  lastName        String
+  dob             DateTime
+  jerseyNumber    String?
+  fieldingOverall Int      @default(3)
+  catching        Int      @default(3)
+  throwing        Int      @default(3)
+  battingOverall  Int      @default(3)
+  profileImageUrl String?
+  active          Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  team                Team                    @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  guardians           Guardian[]
+  followerInvites     PlayerFollowerInvite[]
+  followers           PlayerFollower[]
+  battingOrders       GameBattingOrder[]
+  fieldingAssignments GameFieldingAssignment[]
+  availability        GameAvailability[]
+  plateAppearances    PlateAppearance[]       @relation("BatterPlayer")
+  pitchingAs          PlateAppearance[]       @relation("PitcherPlayer")
+  pitchingAppearances PitchingAppearance[]
+  gameStats           PlayerGameStats[]
+  awards              PlayerAward[]
+  mediaItems          MediaItem[]             @relation("PlayerMedia")
+  mediaTags           MediaTag[]
+  invitesForPlayer    Invite[]            @relation("InvitedForPlayer")
+
+  @@index([teamId])
+}
+
+model Guardian {
+  id           String  @id @default(cuid())
+  playerId     String
+  userId       String?
+  name         String
+  email        String?
+  phone        String?
+  relationship String?
+
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  user   User?  @relation(fields: [userId], references: [id])
+
+  @@index([playerId])
+}
+
+model PlayerFollowerInvite {
+  id            String   @id @default(cuid())
+  playerId      String
+  createdByUserId String?
+  token         String   @unique @default(cuid())
+  expiresAt     DateTime
+  status        String   @default("pending") // pending, accepted, expired
+
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@index([playerId])
+  @@index([token])
+}
+
+model PlayerFollower {
+  id              String   @id @default(cuid())
+  playerId        String
+  userId          String
+  permissionLevel String   @default("team") // team, family, extended, private
+  approvedBy      String?
+  createdAt       DateTime @default(now())
+
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([playerId, userId])
+  @@index([playerId])
+}
+
+// ─── Game Models ───────────────────────────────────────────────────────
+
+model Game {
+  id                  String    @id @default(cuid())
+  teamId              String
+  opponentName        String
+  opponentTeamId      String?
+  gameDate            DateTime
+  homeOrAway          String    @default("home") // home, away
+  venue               String?
+  notes               String?
+  gameStatus          String    @default("scheduled") // scheduled, live, final
+  defensiveFormat     String    @default("standard") // standard (3OF), four_outfield, five_outfield
+  coachMode           String    @default("balanced") // balanced, development, win-now
+  lineupLocked        Boolean   @default(false)
+  simpleModeEnabled   Boolean   @default(true)
+  advancedModeEnabled Boolean   @default(false)
+  currentInning       Int       @default(1)
+  currentHalf         String    @default("top")
+  currentOuts         Int       @default(0)
+  currentBatterId     String?
+  currentPitcherId    String?
+  runnersJson         String?   // JSON: { first: playerId|null, second: playerId|null, third: playerId|null }
+  finalTeamScore      Int?
+  finalOpponentScore  Int?
+  livestreamUrl       String?
+  recapStatus         String?   // pending, generating, complete
+  recapText           String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  finalizedAt         DateTime?
+
+  team                 Team                    @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  lineupVersions       GameLineupVersion[]
+  battingOrder         GameBattingOrder[]
+  fieldingAssignments  GameFieldingAssignment[]
+  scoreByInning        GameScoreByInning[]
+  events               GameEvent[]
+  availability         GameAvailability[]
+  opponentPlayers      OpponentGamePlayer[]
+  plateAppearances     PlateAppearance[]
+  pitchingAppearances  PitchingAppearance[]
+  playerStats          PlayerGameStats[]
+  teamStats            TeamGameStats[]
+  awards               PlayerAward[]
+  mediaItems           MediaItem[]
+  notifications        Notification[]
+  recapJobs            RecapJob[]
+  playEvents           PlayEvent[]
+  baseStateSnapshots   BaseStateSnapshot[]
+
+  @@index([teamId])
+  @@index([gameDate])
+  @@index([gameStatus])
+}
+
+model GameAvailability {
+  id       String  @id @default(cuid())
+  gameId   String
+  playerId String
+  available Boolean @default(true)
+  note     String?
+
+  game   Game   @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@unique([gameId, playerId])
+  @@index([gameId])
+}
+
+// ─── Lineup Versioning ─────────────────────────────────────────────────
+
+model GameLineupVersion {
+  id            String   @id @default(cuid())
+  gameId        String
+  versionNumber Int
+  createdById   String?
+  sourceType    String   @default("generated") // generated, manual, remix
+  isLocked      Boolean  @default(false)
+  createdAt     DateTime @default(now())
+
+  game    Game  @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  creator User? @relation("LineupCreator", fields: [createdById], references: [id])
+
+  @@unique([gameId, versionNumber])
+  @@index([gameId])
+}
+
+model GameBattingOrder {
+  id              String @id @default(cuid())
+  gameId          String
+  lineupVersionId String?
+  battingSlot     Int
+  playerId        String
+
+  game   Game   @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@unique([gameId, battingSlot])
+  @@index([gameId])
+}
+
+model GameFieldingAssignment {
+  id              String  @id @default(cuid())
+  gameId          String
+  lineupVersionId String?
+  inningNumber    Int
+  position        String
+  playerId        String
+  assignmentType  String  @default("planned") // planned, actual
+  locked          Boolean @default(false)
+
+  game   Game   @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@unique([gameId, inningNumber, position, assignmentType])
+  @@index([gameId])
+  @@index([playerId])
+}
+
+// ─── Scoring Models ────────────────────────────────────────────────────
+
+model GameScoreByInning {
+  id           String  @id @default(cuid())
+  gameId       String
+  inningNumber Int
+  half         String  // top, bottom
+  usRuns       Int     @default(0)
+  opponentRuns Int     @default(0)
+  outsRecorded Int     @default(0)
+  completed    Boolean @default(false)
+
+  game Game @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  @@unique([gameId, inningNumber, half])
+  @@index([gameId])
+}
+
+model GameEvent {
+  id              String   @id @default(cuid())
+  gameId          String
+  eventType       String
+  inningNumber    Int
+  half            String
+  sequenceNumber  Int      @default(0)
+  payloadJson     String?
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+
+  game    Game  @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  creator User? @relation("EventCreator", fields: [createdByUserId], references: [id])
+
+  @@index([gameId])
+  @@index([gameId, createdAt])
+}
+
+// ─── Opponent Models ───────────────────────────────────────────────────
+
+model OpponentGamePlayer {
+  id              String  @id @default(cuid())
+  gameId          String
+  jerseyNumber    String?
+  name            String?
+  lineupSlot      Int?
+  currentPosition String?
+  notes           String?
+
+  game Game @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  plateAppearances PlateAppearance[] @relation("OpponentBatter")
+  pitchingAgainst  PlateAppearance[] @relation("OpponentPitcher")
+
+  @@index([gameId])
+}
+
+// ─── Advanced Scorebook Models ─────────────────────────────────────────
+
+model PlateAppearance {
+  id                      String  @id @default(cuid())
+  gameId                  String
+  inningNumber            Int
+  half                    String
+  battingTeam             String  // us, opponent
+  batterPlayerId          String?
+  batterOpponentPlayerId  String?
+  battingOrderSlot        Int?
+  pitcherPlayerId         String?
+  pitcherOpponentPlayerId String?
+  balls                   Int     @default(0)
+  strikes                 Int     @default(0)
+  resultType              String? // strikeout, walk, single, double, triple, homerun, error, fc, hbp, sac_fly, sac_bunt, ground_out, fly_out, line_out, pop_out, double_play, triple_play, reached_on_error
+  rbiCount                Int     @default(0)
+  outsRecorded            Int     @default(0)
+  notes                   String?
+  sourceType              String  @default("tap") // tap, guided, voice, manual
+  createdAt               DateTime @default(now())
+
+  game             Game                @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  batter           Player?             @relation("BatterPlayer", fields: [batterPlayerId], references: [id])
+  opponentBatter   OpponentGamePlayer? @relation("OpponentBatter", fields: [batterOpponentPlayerId], references: [id])
+  pitcher          Player?             @relation("PitcherPlayer", fields: [pitcherPlayerId], references: [id])
+  opponentPitcher  OpponentGamePlayer? @relation("OpponentPitcher", fields: [pitcherOpponentPlayerId], references: [id])
+  pitchEvents      PitchEvent[]
+  playEvents       PlayEvent[]
+  baseSnapshots    BaseStateSnapshot[]
+
+  @@index([gameId])
+  @@index([gameId, inningNumber, half])
+}
+
+model PitchEvent {
+  id                String   @id @default(cuid())
+  plateAppearanceId String
+  pitchNumber       Int
+  pitchResult       String   // ball, strike_called, strike_swinging, foul, in_play, hbp
+  createdAt         DateTime @default(now())
+
+  plateAppearance PlateAppearance @relation(fields: [plateAppearanceId], references: [id], onDelete: Cascade)
+
+  @@index([plateAppearanceId])
+}
+
+model PlayEvent {
+  id                String   @id @default(cuid())
+  gameId            String
+  plateAppearanceId String?
+  eventType         String   // ground_ball, line_drive, fly_ball, pop_up, bunt, stolen_base, wild_pitch, passed_ball, balk, pickoff, other
+  fieldZone         String?  // zone identifier or position
+  primaryFielder    String?  // position code
+  secondaryFielder  String?
+  result            String?  // caught, safe, error, out_at_first, force_out, tag_out, double_play
+  errorFlag         Boolean  @default(false)
+  rawText           String?
+  parsedText        String?
+  sourceType        String   @default("tap") // tap, guided, voice, manual
+  payloadJson       String?
+  createdAt         DateTime @default(now())
+
+  game            Game             @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  plateAppearance PlateAppearance? @relation(fields: [plateAppearanceId], references: [id])
+
+  @@index([gameId])
+}
+
+model BaseStateSnapshot {
+  id                String  @id @default(cuid())
+  gameId            String
+  plateAppearanceId String?
+  inningNumber      Int
+  half              String
+  beforeStateJson   String  // { first: id|null, second: id|null, third: id|null }
+  afterStateJson    String
+
+  game            Game             @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  plateAppearance PlateAppearance? @relation(fields: [plateAppearanceId], references: [id])
+
+  @@index([gameId])
+}
+
+model PitchingAppearance {
+  id             String  @id @default(cuid())
+  gameId         String
+  playerId       String?
+  opponentPlayerId String?
+  inningStart    Int
+  inningEnd      Int?
+  pitchesThrown  Int     @default(0)
+  pitchLimit     Int?
+
+  game   Game    @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  player Player? @relation(fields: [playerId], references: [id])
+
+  @@index([gameId])
+  @@index([playerId])
+}
+
+// ─── Stats Models ──────────────────────────────────────────────────────
+
+model PlayerGameStats {
+  id        String @id @default(cuid())
+  gameId    String
+  playerId  String
+  statsJson String // JSON blob with all stats for this player in this game
+
+  game   Game   @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@unique([gameId, playerId])
+  @@index([gameId])
+  @@index([playerId])
+}
+
+model TeamGameStats {
+  id        String @id @default(cuid())
+  gameId    String @unique
+  statsJson String
+
+  game Game @relation(fields: [gameId], references: [id], onDelete: Cascade)
+}
+
+// ─── Media Models ──────────────────────────────────────────────────────
+
+model MediaItem {
+  id             String   @id @default(cuid())
+  teamId         String
+  gameId         String?
+  playerId       String?
+  uploaderUserId String?
+  mediaType      String   // photo, video
+  storageKey     String
+  thumbnailUrl   String?
+  caption        String?
+  visibility     String   @default("team") // team, family, public
+  createdAt      DateTime @default(now())
+
+  team     Team    @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  game     Game?   @relation(fields: [gameId], references: [id])
+  player   Player? @relation("PlayerMedia", fields: [playerId], references: [id])
+  uploader User?   @relation(fields: [uploaderUserId], references: [id])
+  tags     MediaTag[]
+
+  @@index([teamId])
+  @@index([gameId])
+  @@index([playerId])
+}
+
+model MediaTag {
+  id          String   @id @default(cuid())
+  mediaItemId String
+  playerId    String?
+  tagType     String   // player, game, inning, play, general
+  tagValue    String
+  createdAt   DateTime @default(now())
+
+  mediaItem MediaItem @relation(fields: [mediaItemId], references: [id], onDelete: Cascade)
+  player    Player?   @relation(fields: [playerId], references: [id])
+
+  @@index([mediaItemId])
+}
+
+// ─── Awards / Recognition ──────────────────────────────────────────────
+
+model PlayerAward {
+  id           String   @id @default(cuid())
+  gameId       String
+  playerId     String?
+  awardType    String   // player_of_game, team_of_game, custom
+  headline     String?
+  subtext      String?
+  cardImageUrl String?
+  createdAt    DateTime @default(now())
+
+  game   Game    @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  player Player? @relation(fields: [playerId], references: [id])
+
+  @@index([gameId])
+  @@index([playerId])
+}
+
+// ─── Notifications ─────────────────────────────────────────────────────
+
+model Notification {
+  id              String   @id @default(cuid())
+  teamId          String?
+  gameId          String?
+  recipientUserId String
+  channel         String   @default("in_app") // in_app, email, push, sms
+  templateKey     String
+  payloadJson     String?
+  status          String   @default("pending") // pending, sent, read
+  createdAt       DateTime @default(now())
+
+  team      Team? @relation(fields: [teamId], references: [id])
+  game      Game? @relation(fields: [gameId], references: [id])
+  recipient User  @relation(fields: [recipientUserId], references: [id])
+
+  @@index([recipientUserId])
+  @@index([teamId])
+}
+
+// ─── AI Recap Jobs ─────────────────────────────────────────────────────
+
+model RecapJob {
+  id            String    @id @default(cuid())
+  gameId        String
+  status        String    @default("pending") // pending, generating, complete, failed
+  promptVersion String?
+  resultText    String?
+  createdAt     DateTime  @default(now())
+  completedAt   DateTime?
+
+  game Game @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  @@index([gameId])
+}

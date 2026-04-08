@@ -53,6 +53,103 @@ export async function createCheckoutSession({
   });
 }
 
+// ─── Setup Session (save card without charging) ───
+
+interface CreateSetupParams {
+  customerEmail: string;
+  customerName: string;
+  stripeCustomerId?: string;
+  jobId: string;
+  operatorName: string;
+  depositAmount: number; // dollars, for metadata only
+  successUrl: string;
+  cancelUrl: string;
+}
+
+export async function createSetupSession({
+  customerEmail,
+  customerName,
+  stripeCustomerId,
+  jobId,
+  operatorName,
+  depositAmount,
+  successUrl,
+  cancelUrl,
+}: CreateSetupParams) {
+  const stripe = getStripe();
+
+  // Create or reuse Stripe customer
+  const customerId =
+    stripeCustomerId ||
+    (
+      await stripe.customers.create({
+        email: customerEmail,
+        name: customerName,
+        metadata: { source: "booking_form" },
+      })
+    ).id;
+
+  const session = await stripe.checkout.sessions.create({
+    mode: "setup",
+    customer: customerId,
+    payment_method_types: ["card"],
+    success_url: successUrl,
+    cancel_url: cancelUrl,
+    metadata: {
+      job_id: jobId,
+      deposit_amount: String(depositAmount),
+    },
+  });
+
+  return { session, stripeCustomerId: customerId };
+}
+
+// ─── Charge Deposit (off-session with saved payment method) ───
+
+interface ChargeDepositParams {
+  stripeCustomerId: string;
+  paymentMethodId: string;
+  amount: number; // in cents
+  jobId: string;
+  description: string;
+}
+
+export async function chargeDeposit({
+  stripeCustomerId,
+  paymentMethodId,
+  amount,
+  jobId,
+  description,
+}: ChargeDepositParams) {
+  return getStripe().paymentIntents.create({
+    amount,
+    currency: "usd",
+    customer: stripeCustomerId,
+    payment_method: paymentMethodId,
+    off_session: true,
+    confirm: true,
+    description,
+    metadata: { job_id: jobId, type: "deposit" },
+  });
+}
+
+// ─── Refund Deposit ───
+
+export async function refundDeposit(paymentIntentId: string, reason?: string) {
+  return getStripe().refunds.create({
+    payment_intent: paymentIntentId,
+    metadata: { reason: reason || "customer_cancellation" },
+  });
+}
+
+// ─── Retrieve Setup Intent (for webhook) ───
+
+export async function retrieveSetupIntent(setupIntentId: string) {
+  return getStripe().setupIntents.retrieve(setupIntentId);
+}
+
+// ─── Webhook Event Construction ───
+
 export async function constructWebhookEvent(
   body: string,
   signature: string

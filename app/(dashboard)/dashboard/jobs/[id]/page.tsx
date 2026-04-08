@@ -30,6 +30,9 @@ type Job = {
   weight_charge: number;
   daily_overage_charge: number;
   discount_amount: number;
+  deposit_amount: number | null;
+  deposit_status: string | null;
+  stripe_payment_intent_id: string | null;
   weight_lbs: number | null;
   days_on_site: number | null;
   requested_drop_start: string | null;
@@ -213,6 +216,54 @@ export default function JobDetail({ params }: { params: { id: string } }) {
                 <span className="text-tippd-smoke">Total</span>
                 <span className="text-white">${total.toFixed(2)}</span>
               </div>
+              {/* Deposit */}
+              {job.deposit_amount && job.deposit_amount > 0 && (
+                <div className="border-t border-white/10 pt-2 mt-2 space-y-1">
+                  <div className="flex justify-between">
+                    <span className="text-tippd-smoke">Deposit (25%)</span>
+                    <span className={
+                      job.deposit_status === "charged" ? "text-emerald-400" :
+                      job.deposit_status === "refunded" ? "text-amber-400" :
+                      job.deposit_status === "forfeited" ? "text-red-400" :
+                      "text-tippd-smoke"
+                    }>
+                      ${job.deposit_amount.toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-xs text-tippd-ash">Status</span>
+                    <span className={`text-xs font-medium px-1.5 py-0.5 rounded ${
+                      job.deposit_status === "charged" ? "bg-emerald-500/20 text-emerald-400" :
+                      job.deposit_status === "pending" ? "bg-amber-500/20 text-amber-400" :
+                      job.deposit_status === "refunded" ? "bg-blue-500/20 text-blue-400" :
+                      job.deposit_status === "forfeited" ? "bg-red-500/20 text-red-400" :
+                      "bg-white/10 text-tippd-ash"
+                    }`}>
+                      {job.deposit_status === "charged" ? "Charged" :
+                       job.deposit_status === "pending" ? "Pending" :
+                       job.deposit_status === "refunded" ? "Refunded" :
+                       job.deposit_status === "forfeited" ? "Forfeited" :
+                       "None"}
+                    </span>
+                  </div>
+                  {job.deposit_status === "charged" && job.stripe_payment_intent_id && (
+                    <button
+                      onClick={async () => {
+                        if (!confirm("Refund the deposit? This cannot be undone.")) return;
+                        const res = await fetch(`/api/jobs/${job.id}/status`, {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ status: "cancelled" }),
+                        });
+                        if (res.ok) window.location.reload();
+                      }}
+                      className="w-full text-xs text-center py-1.5 rounded bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors"
+                    >
+                      Cancel &amp; Refund Deposit
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 

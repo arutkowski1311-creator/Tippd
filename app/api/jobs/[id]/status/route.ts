@@ -1,4 +1,6 @@
 import { getAuthContext, json, error } from "@/lib/api-helpers";
+import { refundDeposit } from "@/lib/stripe";
+import { DEPOSIT_CANCELLATION_HOURS } from "@/lib/constants";
 import { z } from "zod";
 import { validateJobTransition } from "@/lib/state-machines";
 import type { JobStatus } from "@/types/job";
@@ -124,6 +126,27 @@ export async function POST(
         (now.getTime() - dropDate.getTime()) / (1000 * 60 * 60 * 24)
       );
       update.days_on_site = daysOnSite;
+    }
+  }
+
+  // Handle deposit refund/forfeiture on cancellation
+  if (newStatus === "cancelled" && job.deposit_status === "charged" && job.stripe_payment_intent_id) {
+    const hoursUntilDrop = job.requested_drop_start
+      ? (new Date(job.requested_drop_start).getTime() - Date.now()) / (1000 * 60 * 60)
+      : Infinity;
+
+    if (hoursUntilDrop >= DEPOSIT_CANCELLATION_HOURS) {
+      // Refund — cancelled 48+ hours before delivery
+      try {
+        await refundDeposit(job.stripe_payment_intent_id, "cancelled_48h_before_delivery");
+        update.deposit_status = "refunded";
+      } catch {
+        // Log but don't block the cancellation
+        update.deposit_status = "charged"; // keep as charged, operator can manually refund
+      }
+    } else {
+      // Forfeited — cancelled less than 48 hours before delivery
+      update.deposit_status = "forfeited";
     }
   }
 

@@ -4,7 +4,7 @@ import { useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { ArrowLeft, ArrowRight, Check, MessageSquare, AlertTriangle, Loader2 } from "lucide-react";
-import { DUMPSTER_SIZE_INFO, OVERAGE_PER_TON } from "@/lib/constants";
+import { DUMPSTER_SIZE_INFO, OVERAGE_PER_TON, DEPOSIT_PERCENT } from "@/lib/constants";
 import { AddressInput } from "@/components/ui/address-input";
 import type { DumpsterSize } from "@/types/dumpster";
 import type { JobType } from "@/types/job";
@@ -39,12 +39,14 @@ function BookingWizard() {
   const [email, setEmail] = useState("");
   const [jobType, setJobType] = useState<JobType>("residential");
   const [notes, setNotes] = useState("");
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const currentIndex = STEPS.indexOf(step);
   const sizeInfo = DUMPSTER_SIZE_INFO[size];
   const price = sizeInfo.price;
+  const depositAmount = Math.round(price * DEPOSIT_PERCENT * 100) / 100;
 
   function next() {
     if (currentIndex < STEPS.length - 1) {
@@ -281,7 +283,7 @@ function BookingWizard() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="Email (optional)"
+              placeholder="Email (required for payment)"
               className="w-full h-11 px-3 rounded-md border border-gray-300 text-sm"
             />
             <textarea
@@ -298,7 +300,7 @@ function BookingWizard() {
             </button>
             <button
               onClick={next}
-              disabled={!name || !phone}
+              disabled={!name || !phone || !email}
               className="flex-1 py-3 bg-tippd-blue text-white rounded-md font-semibold flex items-center justify-center gap-2 hover:opacity-90 disabled:opacity-40"
             >
               Review Booking <ArrowRight className="w-4 h-4" />
@@ -346,7 +348,7 @@ function BookingWizard() {
             )}
             <div className="p-4 bg-gray-50 rounded-b-xl">
               <div className="flex justify-between">
-                <span className="font-semibold">Total</span>
+                <span className="font-semibold">Dumpster Rental</span>
                 <span className="text-xl font-bold">${price}</span>
               </div>
               <p className="text-xs text-gray-500 mt-1">
@@ -354,6 +356,37 @@ function BookingWizard() {
               </p>
             </div>
           </div>
+
+          {/* Deposit callout */}
+          <div className="mt-4 p-4 rounded-lg border border-tippd-blue/20 bg-tippd-blue/5">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm font-semibold text-tippd-blue">Refundable Deposit (25%)</span>
+              <span className="text-lg font-bold text-tippd-blue">${depositAmount.toFixed(2)}</span>
+            </div>
+            <ul className="text-xs text-gray-600 space-y-1">
+              <li>Your card will <strong>not</strong> be charged now — only when we confirm your delivery date.</li>
+              <li>Fully refundable if cancelled 48+ hours before confirmed delivery.</li>
+              <li>Applied as a credit toward your final invoice.</li>
+              <li>Additional charges may apply for weight exceeding {sizeInfo.includedTons} tons (${OVERAGE_PER_TON}/ton).</li>
+            </ul>
+          </div>
+
+          {/* Terms & Conditions */}
+          <label className="mt-4 flex items-start gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={termsAccepted}
+              onChange={(e) => setTermsAccepted(e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-gray-300 text-tippd-blue focus:ring-tippd-blue"
+            />
+            <span className="text-sm text-gray-600">
+              I agree to the{" "}
+              <a href="/terms" target="_blank" className="text-tippd-blue underline hover:opacity-80">
+                Terms &amp; Conditions
+              </a>
+              , including the deposit, cancellation, and refund policies.
+            </span>
+          </label>
 
           {submitError && (
             <div className="mt-4 p-3 rounded-md bg-red-50 border border-red-200 text-sm text-red-700">
@@ -366,10 +399,14 @@ function BookingWizard() {
               <ArrowLeft className="w-4 h-4" />
             </button>
             <button
-              disabled={submitting}
+              disabled={submitting || !termsAccepted || !email}
               onClick={async () => {
                 if (!operatorId) {
                   setSubmitError("Booking configuration error. Please contact us directly.");
+                  return;
+                }
+                if (!email) {
+                  setSubmitError("Email is required for payment processing.");
                   return;
                 }
                 setSubmitting(true);
@@ -386,7 +423,7 @@ function BookingWizard() {
                       operator_id: operatorId,
                       name,
                       phone,
-                      email: email || undefined,
+                      email,
                       drop_address: address,
                       drop_lat: dropLat ?? undefined,
                       drop_lng: dropLng ?? undefined,
@@ -396,6 +433,7 @@ function BookingWizard() {
                       requested_drop_end: dropEnd.toISOString(),
                       customer_notes: notes || undefined,
                       sms_consent: true,
+                      terms_accepted_at: new Date().toISOString(),
                     }),
                   });
 
@@ -404,18 +442,26 @@ function BookingWizard() {
                     throw new Error(data.error || "Booking failed. Please try again.");
                   }
 
-                  router.push("/book/confirm");
+                  const data = await res.json();
+
+                  // Redirect to Stripe Checkout to save payment method
+                  if (data.checkout_url) {
+                    window.location.href = data.checkout_url;
+                  } else {
+                    // Stripe setup failed — still created the job, go to confirm
+                    router.push("/book/confirm");
+                  }
                 } catch (err: unknown) {
                   setSubmitError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
                   setSubmitting(false);
                 }
               }}
-              className="flex-1 py-3 bg-tippd-blue text-white rounded-md font-semibold hover:opacity-90 disabled:opacity-60 flex items-center justify-center gap-2"
+              className="flex-1 py-3 bg-tippd-blue text-white rounded-md font-semibold hover:opacity-90 disabled:opacity-40 flex items-center justify-center gap-2"
             >
               {submitting ? (
                 <><Loader2 className="w-4 h-4 animate-spin" /> Submitting...</>
               ) : (
-                <>Confirm &amp; Pay ${price}</>
+                <>Agree &amp; Save Payment Method</>
               )}
             </button>
           </div>

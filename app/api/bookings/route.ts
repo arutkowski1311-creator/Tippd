@@ -1,12 +1,14 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { json, error } from "@/lib/api-helpers";
+import { createSetupSession } from "@/lib/stripe";
+import { DEPOSIT_PERCENT } from "@/lib/constants";
 import { z } from "zod";
 
 const bookingSchema = z.object({
   operator_id: z.string().uuid(),
   name: z.string().min(1),
   phone: z.string().min(1),
-  email: z.string().email().optional(),
+  email: z.string().email(),
   drop_address: z.string().min(1),
   drop_lat: z.number().optional(),
   drop_lng: z.number().optional(),
@@ -16,6 +18,7 @@ const bookingSchema = z.object({
   requested_drop_end: z.string().optional(),
   customer_notes: z.string().optional(),
   sms_consent: z.boolean().optional().default(true),
+  terms_accepted_at: z.string(),
 });
 
 // Public — no auth required
@@ -26,10 +29,10 @@ export async function POST(request: Request) {
 
   const admin = createAdminClient();
 
-  // Get operator pricing
+  // Get operator pricing + name
   const { data: operator, error: opError } = await admin
     .from("operators")
-    .select("base_rate_10yd, base_rate_20yd, base_rate_30yd, standard_rental_days")
+    .select("name, base_rate_10yd, base_rate_20yd, base_rate_30yd, standard_rental_days")
     .eq("id", parsed.data.operator_id)
     .single();
 
@@ -111,8 +114,48 @@ export async function POST(request: Request) {
 
   if (jobError) return error(jobError.message);
 
-  // TODO: Track booking funnel event
-  // TODO: Create Stripe Checkout session for deposit if needed
+  // Calculate deposit and create Stripe setup session
+  const depositAmount = Math.round(baseRate * DEPOSIT_PERCENT * 100) / 100;
+  const origin = new URL(request.url).origin;
 
-  return json(job, 201);
+  try {
+    const { session, stripeCustomerId } = await createSetupSession({
+      customerEmail: parsed.data.email,
+      customerName: parsed.data.name,
+      stripeCustomerId: (customer as any).stripe_customer_id || undefined,
+      jobId: job.id,
+      operatorName: operator.name,
+      depositAmount,
+      successUrl: `${origin}/book/confirm?session_id={CHECKOUT_SESSION_ID}`,
+      cancelUrl: `${origin}/book/cancel`,
+    });
+
+    // Update job with deposit info + terms acceptance
+    await admin
+      .from("jobs")
+      .update({
+        deposit_amount: depositAmount,
+        deposit_status: "pending",
+        stripe_checkout_session_id: session.id,
+        terms_accepted_at: parsed.data.terms_accepted_at,
+      })
+      .eq("id", job.id);
+
+    // Store Stripe customer ID on customer record
+    if (stripeCustomerId) {
+      await admin
+        .from("customers")
+        .update({ stripe_customer_id: stripeCustomerId })
+        .eq("id", customer!.id);
+    }
+
+    return json({ ...job, deposit_amount: depositAmount, checkout_url: session.url }, 201);
+  } catch (stripeError) {
+    // Job was created but Stripe failed — return job without checkout URL
+    // Operator can see the job and follow up manually
+    return json(
+      { ...job, deposit_amount: 0, checkout_url: null, stripe_error: true },
+      201
+    );
+  }
 }

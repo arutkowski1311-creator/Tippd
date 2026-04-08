@@ -33,6 +33,9 @@ type PendingJob = {
   requested_drop_start: string | null;
   dumpster_size: string | null;
   notes: string | null;
+  deposit_amount: number | null;
+  deposit_status: string | null;
+  stripe_payment_method_id: string | null;
 };
 
 type RevenueJob = {
@@ -177,7 +180,7 @@ export default function DashboardOverview() {
     // Pending approval jobs
     const { data: pendingData } = await supabase
       .from("jobs")
-      .select("id, customer_name, customer_phone, drop_address, job_type, base_rate, created_at, requested_drop_start, notes")
+      .select("id, customer_name, customer_phone, drop_address, job_type, base_rate, created_at, requested_drop_start, notes, deposit_amount, deposit_status, stripe_payment_method_id")
       .eq("status", "pending_approval")
       .order("created_at", { ascending: false });
     setPendingJobs((pendingData as PendingJob[]) || []);
@@ -223,15 +226,27 @@ export default function DashboardOverview() {
     setRevenueLoading(false);
   }
 
-  // Approve job
+  // Approve job (charges deposit if payment method is saved)
+  const [approveError, setApproveError] = useState<string | null>(null);
+
   async function approveJob(jobId: string) {
     setActionLoading(true);
-    const supabase = createClient();
-    await supabase.from("jobs").update({ status: "scheduled" }).eq("id", jobId);
-    setPendingJobs((prev) => prev.filter((j) => j.id !== jobId));
-    setModalJob(null);
+    setApproveError(null);
+    try {
+      const res = await fetch(`/api/jobs/${jobId}/approve`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) {
+        setApproveError(data.error || "Failed to approve job");
+        setActionLoading(false);
+        return;
+      }
+      setPendingJobs((prev) => prev.filter((j) => j.id !== jobId));
+      setModalJob(null);
+      fetchData();
+    } catch {
+      setApproveError("Network error. Please try again.");
+    }
     setActionLoading(false);
-    fetchData();
   }
 
   // Decline job
@@ -482,16 +497,37 @@ export default function DashboardOverview() {
                   <p className="text-sm text-tippd-smoke">{modalJob.notes}</p>
                 </div>
               )}
+              {/* Deposit info */}
+              {modalJob.deposit_amount && modalJob.deposit_amount > 0 ? (
+                <div className="p-3 rounded-lg bg-white/5 border border-white/10">
+                  <div className="flex justify-between items-center">
+                    <label className="text-xs text-tippd-ash uppercase tracking-wide">Deposit (25%)</label>
+                    <span className="text-sm font-bold text-emerald-400">{fmtCurrency(modalJob.deposit_amount)}</span>
+                  </div>
+                  <p className="text-xs text-tippd-ash mt-1">
+                    {modalJob.stripe_payment_method_id
+                      ? "Card on file — will be charged on approval"
+                      : "No card saved — customer may need to re-submit payment"}
+                  </p>
+                </div>
+              ) : null}
             </div>
+
+            {approveError && (
+              <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-sm text-red-400 flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                {approveError}
+              </div>
+            )}
 
             <div className="flex gap-2">
               <button
-                onClick={() => approveJob(modalJob.id)}
+                onClick={() => { setApproveError(null); approveJob(modalJob.id); }}
                 disabled={actionLoading}
                 className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-semibold transition-colors disabled:opacity-50"
               >
                 {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                Approve
+                {modalJob.stripe_payment_method_id ? "Approve & Charge Deposit" : "Approve"}
               </button>
               <button
                 onClick={() => declineJob(modalJob.id)}
