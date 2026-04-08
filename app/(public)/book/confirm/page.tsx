@@ -1,7 +1,43 @@
-import Link from "next/link";
-import { CheckCircle2, MessageSquare, Phone, Shield } from "lucide-react";
+"use client";
 
-export default function BookingConfirmPage() {
+import { useEffect, useState, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
+import Link from "next/link";
+import { CheckCircle2, MessageSquare, Phone, Shield, Loader2 } from "lucide-react";
+
+function ConfirmContent() {
+  const searchParams = useSearchParams();
+  const sessionId = searchParams.get("session_id");
+  const [confirming, setConfirming] = useState(!!sessionId);
+  const [depositAmount, setDepositAmount] = useState<number | null>(null);
+  const [confirmed, setConfirmed] = useState(!sessionId); // If no session_id, show static page
+
+  useEffect(() => {
+    if (!sessionId) return;
+
+    // Call our API to retrieve the Stripe session and save the payment method
+    fetch(`/api/bookings/confirm?session_id=${sessionId}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.deposit_amount) setDepositAmount(data.deposit_amount);
+        setConfirmed(true);
+      })
+      .catch(() => {
+        // Even if this fails, show the confirmation — the job was already created
+        setConfirmed(true);
+      })
+      .finally(() => setConfirming(false));
+  }, [sessionId]);
+
+  if (confirming) {
+    return (
+      <div className="max-w-lg mx-auto px-4 py-16 text-center">
+        <Loader2 className="w-8 h-8 animate-spin text-tippd-blue mx-auto mb-4" />
+        <p className="text-gray-500">Confirming your booking...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-lg mx-auto px-4 py-16 text-center">
       <div className="flex justify-center mb-6">
@@ -19,7 +55,10 @@ export default function BookingConfirmPage() {
         <p className="text-sm font-semibold text-gray-700">What happens next:</p>
         <ol className="space-y-2 text-sm text-gray-600 list-decimal pl-4">
           <li>We&apos;ll review your request and confirm date availability</li>
-          <li>Once confirmed, your 25% refundable deposit will be charged</li>
+          <li>
+            Once confirmed, your 25% refundable deposit
+            {depositAmount ? ` ($${depositAmount.toFixed(2)})` : ""} will be charged
+          </li>
           <li>You&apos;ll receive a confirmation text with your booking details</li>
           <li>The evening before delivery, you&apos;ll get a 4-hour arrival window via text</li>
         </ol>
@@ -62,5 +101,20 @@ export default function BookingConfirmPage() {
         <Link href="/privacy" className="underline hover:text-gray-600">Privacy Policy</Link>
       </p>
     </div>
+  );
+}
+
+export default function BookingConfirmPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="max-w-lg mx-auto px-4 py-16 text-center">
+          <Loader2 className="w-8 h-8 animate-spin text-tippd-blue mx-auto mb-4" />
+          <p className="text-gray-500">Loading...</p>
+        </div>
+      }
+    >
+      <ConfirmContent />
+    </Suspense>
   );
 }
