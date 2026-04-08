@@ -3,231 +3,76 @@
 @tailwind utilities;
 
 @layer base {
+  /* ─── Light theme (public pages, driver app, contractor portal) ─── */
   :root {
-    /* USC Dark Theme — Cardinal & Gold */
-    --background: 0 0% 7%;
-    --foreground: 40 20% 92%;
-    --card: 0 0% 10%;
-    --card-foreground: 40 20% 92%;
-    --popover: 0 0% 10%;
-    --popover-foreground: 40 20% 92%;
-    --primary: 46 100% 50%;
-    --primary-foreground: 0 0% 7%;
-    --secondary: 0 0% 15%;
-    --secondary-foreground: 40 20% 88%;
-    --muted: 0 0% 15%;
-    --muted-foreground: 40 5% 55%;
-    --accent: 0 75% 35%;
-    --accent-foreground: 40 20% 95%;
-    --destructive: 0 84% 50%;
+    --background: 210 20% 98%;
+    --foreground: 215 35% 20%;
+    --card: 0 0% 100%;
+    --card-foreground: 215 35% 20%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 215 35% 20%;
+    --primary: 213 59% 26%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 60% 53%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 210 15% 95%;
+    --muted-foreground: 215 10% 45%;
+    --accent: 100 49% 47%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 18%;
-    --input: 0 0% 18%;
-    --ring: 46 100% 50%;
-    --radius: 0.75rem;
+    --border: 210 15% 88%;
+    --input: 210 15% 88%;
+    --ring: 213 59% 26%;
+    --radius: 0.5rem;
 
-    /* USC brand tokens */
-    --cardinal: 0 100% 30%;
-    --cardinal-bright: 0 85% 42%;
-    --gold: 46 100% 50%;
-    --gold-dim: 43 70% 35%;
-    --scoreboard-bg: 120 15% 8%;
-    --scoreboard-border: 40 30% 20%;
-    --led-on: 46 100% 55%;
-    --led-off: 46 20% 12%;
-    --led-red-on: 0 100% 50%;
-    --led-red-off: 0 30% 12%;
-    --led-green-on: 120 80% 45%;
-    --led-green-off: 120 20% 12%;
+    /* Tippd custom tokens — Metro palette */
+    --tippd-navy: #1B3A6B;
+    --tippd-blue: #2E86DE;
+    --tippd-green: #6DB33F;
+    --tippd-ink: #0F1B2D;
+    --tippd-steel: #1E2A3E;
+    --tippd-charcoal: #142236;
+    --tippd-graphite: #2C3E56;
+    --tippd-ash: #5A6B7D;
+    --tippd-smoke: #8899AA;
+    --tippd-bone: #D6DEE6;
+    --tippd-cream: #F4F7FA;
+  }
+
+  /* ─── Dark theme (owner/manager dashboard) ─── */
+  .dark {
+    --background: 217 30% 8%;
+    --foreground: 210 15% 93%;
+    --card: 217 25% 12%;
+    --card-foreground: 210 15% 93%;
+    --popover: 217 25% 12%;
+    --popover-foreground: 210 15% 93%;
+    --primary: 210 60% 53%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 217 20% 18%;
+    --secondary-foreground: 210 15% 93%;
+    --muted: 217 20% 18%;
+    --muted-foreground: 210 10% 55%;
+    --accent: 100 49% 47%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 100% / 10%;
+    --input: 0 0% 100% / 15%;
+    --ring: 210 60% 53%;
   }
 
   * {
     @apply border-border;
   }
-
   body {
     @apply bg-background text-foreground;
   }
 }
 
-/* LED/Dot-matrix number font simulation */
-@layer components {
-  .led-segment {
-    font-variant-numeric: tabular-nums;
-    font-feature-settings: "tnum";
-  }
-
-  .led-glow {
-    text-shadow: 0 0 10px hsl(var(--led-on)), 0 0 20px hsl(var(--led-on) / 0.5), 0 0 40px hsl(var(--led-on) / 0.2);
-  }
-
-  .led-glow-red {
-    text-shadow: 0 0 10px hsl(var(--led-red-on)), 0 0 20px hsl(var(--led-red-on) / 0.5);
-  }
-
-  .led-glow-green {
-    text-shadow: 0 0 10px hsl(var(--led-green-on)), 0 0 20px hsl(var(--led-green-on) / 0.5);
-  }
-
-  .scoreboard-panel {
-    background: linear-gradient(180deg, hsl(0 0% 8%) 0%, hsl(0 0% 5%) 100%);
-    border: 2px solid hsl(var(--scoreboard-border));
-    box-shadow: inset 0 1px 0 hsl(0 0% 15% / 0.3), 0 4px 20px hsl(0 0% 0% / 0.5);
-  }
-
-  .bulb {
-    width: 18px;
-    height: 18px;
-    border-radius: 50%;
-    border: 1px solid hsl(0 0% 20%);
-    transition: all 0.3s ease;
-  }
-
-  .bulb-on-gold {
-    background: hsl(var(--gold));
-    box-shadow: 0 0 8px hsl(var(--gold)), 0 0 16px hsl(var(--gold) / 0.4);
-  }
-
-  .bulb-off {
-    background: hsl(0 0% 12%);
-    box-shadow: inset 0 1px 2px hsl(0 0% 0% / 0.5);
-  }
-
-  .bulb-on-red {
-    background: hsl(var(--led-red-on));
-    box-shadow: 0 0 8px hsl(var(--led-red-on)), 0 0 16px hsl(var(--led-red-on) / 0.4);
-  }
-
-  .bulb-on-green {
-    background: hsl(var(--led-green-on));
-    box-shadow: 0 0 8px hsl(var(--led-green-on)), 0 0 16px hsl(var(--led-green-on) / 0.4);
-  }
-
-  /* Card hover glow */
-  .card-glow:hover {
-    box-shadow: 0 0 20px hsl(var(--cardinal) / 0.15), 0 4px 12px hsl(0 0% 0% / 0.3);
-  }
-
-  /* Image background cards */
-  .card-bg-image {
-    position: relative;
-    overflow: hidden;
-  }
-
-  .card-bg-image::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background-size: cover;
-    background-position: center;
-    opacity: 0.12;
-    z-index: 0;
-    transition: opacity 0.3s ease;
-  }
-
-  .card-bg-image:hover::before {
-    opacity: 0.18;
-  }
-
-  .card-bg-image > * {
-    position: relative;
-    z-index: 1;
-  }
-
-  .card-bg-cards::before {
-    background-image: url('/images/baseball-cards.jpg');
-  }
-
-  .card-bg-scoreboard::before {
-    background-image: url('/images/scoreboard.jpg');
-  }
-
-  .card-bg-fans::before {
-    background-image: url('/images/fans.jpg');
-  }
-
-  /* Team initials watermark */
-  .team-initials-watermark {
-    position: relative;
-    overflow: hidden;
-  }
-
-  .team-initials-watermark::after {
-    content: "USC";
-    position: absolute;
-    right: -5px;
-    bottom: -15px;
-    font-size: 5rem;
-    font-weight: 900;
-    line-height: 1;
-    letter-spacing: -0.05em;
-    color: hsl(0 100% 30% / 0.08);
-    z-index: 0;
-    pointer-events: none;
-  }
-
-  /* Gold gradient text */
-  .text-gold-gradient {
-    background: linear-gradient(135deg, hsl(43 100% 55%) 0%, hsl(46 100% 50%) 50%, hsl(40 90% 45%) 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-
-  /* Cardinal gradient background */
-  .bg-cardinal-gradient {
-    background: linear-gradient(135deg, hsl(0 100% 25%) 0%, hsl(0 85% 35%) 100%);
-  }
-}
-
-/* Mobile touch optimization */
 @layer utilities {
-  .touch-target {
-    @apply min-h-[48px] min-w-[48px];
-  }
-}
-
-/* Print styles */
-@media print {
-  body {
-    background: white !important;
-    color: black !important;
-    font-size: 11pt;
-  }
-
-  .no-print {
-    display: none !important;
-  }
-
-  .print-only {
-    display: block !important;
-  }
-
-  .print-break {
-    page-break-before: always;
-  }
-
-  [data-slot="card"] {
-    box-shadow: none !important;
-    border: 1px solid #ccc !important;
-    break-inside: avoid;
-  }
-
-  table {
-    border-collapse: collapse;
-    width: 100%;
-  }
-
-  th, td {
-    border: 1px solid #333 !important;
-    padding: 4px 6px !important;
-    font-size: 10pt;
-  }
-
-  th {
-    background: #eee !important;
-    font-weight: bold;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
+  .text-balance {
+    text-wrap: balance;
   }
 }

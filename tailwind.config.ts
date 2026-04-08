@@ -43,13 +43,18 @@ const config: Config = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        cardinal: {
-          DEFAULT: "hsl(var(--cardinal))",
-          bright: "hsl(var(--cardinal-bright))",
-        },
-        gold: {
-          DEFAULT: "hsl(var(--gold))",
-          dim: "hsl(var(--gold-dim))",
+        tippd: {
+          navy: "#1B3A6B",
+          blue: "#2E86DE",
+          green: "#6DB33F",
+          ink: "#0F1B2D",
+          steel: "#1E2A3E",
+          charcoal: "#142236",
+          graphite: "#2C3E56",
+          ash: "#5A6B7D",
+          smoke: "#8899AA",
+          bone: "#D6DEE6",
+          cream: "#F4F7FA",
         },
       },
       borderRadius: {
@@ -58,29 +63,21 @@ const config: Config = {
         sm: "calc(var(--radius) - 4px)",
       },
       fontFamily: {
-        sans: ["-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "Helvetica Neue", "Arial", "sans-serif"],
-        mono: ["SF Mono", "Fira Code", "Fira Mono", "Roboto Mono", "monospace"],
+        sans: ["var(--font-sans)", "system-ui", "sans-serif"],
       },
       keyframes: {
-        "score-pop": {
-          "0%": { transform: "scale(1)" },
-          "50%": { transform: "scale(1.3)" },
-          "100%": { transform: "scale(1)" },
+        "accordion-down": {
+          from: { height: "0" },
+          to: { height: "var(--radix-accordion-content-height)" },
         },
-        "bulb-flash": {
-          "0%": { opacity: "0.3" },
-          "50%": { opacity: "1" },
-          "100%": { opacity: "1" },
-        },
-        "glow-pulse": {
-          "0%, 100%": { opacity: "1" },
-          "50%": { opacity: "0.7" },
+        "accordion-up": {
+          from: { height: "var(--radix-accordion-content-height)" },
+          to: { height: "0" },
         },
       },
       animation: {
-        "score-pop": "score-pop 0.4s ease-out",
-        "bulb-flash": "bulb-flash 0.3s ease-out",
-        "glow-pulse": "glow-pulse 2s ease-in-out infinite",
+        "accordion-down": "accordion-down 0.2s ease-out",
+        "accordion-up": "accordion-up 0.2s ease-out",
       },
     },
   },

@@ -23,15 +23,12 @@ export function EmptyState({
         className
       )}
     >
-      <div
-        className="w-14 h-14 rounded-full flex items-center justify-center mb-4"
-        style={{ background: "hsl(0 0% 12%)", border: "1px solid hsl(0 0% 18%)" }}
-      >
-        <Icon className="w-7 h-7" style={{ color: "hsl(40 5% 45%)" }} />
+      <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center mb-4">
+        <Icon className="w-7 h-7 text-muted-foreground" />
       </div>
-      <p className="text-lg font-semibold" style={{ color: "hsl(40 20% 88%)" }}>{title}</p>
+      <p className="text-lg font-semibold">{title}</p>
       {description && (
-        <p className="text-sm mt-1 max-w-sm" style={{ color: "hsl(40 5% 50%)" }}>
+        <p className="text-sm text-muted-foreground mt-1 max-w-sm">
           {description}
         </p>
       )}

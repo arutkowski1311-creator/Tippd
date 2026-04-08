@@ -1,0 +1,192 @@
+=== C:/Users/Admin/OneDrive/Desktop/tippd/SMS_Consent_Language.docx ===
+SMS CONSENT
+━━━━━━━━━━━━━━━━━━━━━━
+Opt-In Language Reference
+Prepared: March 2026
+Copy these exactly into your UI. Placement matters — consent language must appear adjacent to the phone number input field, not buried in a footer or linked document only.
+How to Implement
+The consent language must be:
+Visible without scrolling — adjacent to the phone number field
+In a readable font size — no smaller than 12px
+Not pre-checked — user must actively provide their phone number (that IS the opt-in)
+Present at every point where phone numbers are collected
+Recorded in your database — store consent timestamp and source (booking form, portal signup, etc.)
+TIPPD — Booking Form (Public Website)
+Place directly below the phone number input field on the booking wizard step that collects phone number.
+Primary Consent Language
+"By providing your phone number, you agree to receive automated SMS text messages from [Business Name] about your dumpster rental service, including booking confirmations, delivery windows, driver updates, and invoices. Reply STOP to opt out at any time. Reply HELP for help. Message and data rates may apply. View our Privacy Policy at [URL] and Terms of Service at [URL]."
+Short Version (for tight UI)
+"By providing your number, you consent to receive service-related SMS from [Business Name]. Reply STOP to opt out. Msg rates may apply. Privacy Policy | Terms"
+Checkbox Version (optional additional confirmation)
+☐ I agree to receive text message updates about my dumpster rental service from [Business Name]. Reply STOP to opt out at any time.
+TIPPD — Contractor Portal Signup
+Place on the account creation form adjacent to the phone number field.
+"By providing your phone number, you agree to receive SMS messages from [Business Name] and Tippd related to your contractor account, including booking confirmations, scheduling updates, invoices, and payment reminders. Reply STOP to opt out. Message and data rates may apply."
+TIPPD — Driver Onboarding
+Place on the driver account setup screen.
+"Your phone number will be used to send you job notifications, route updates, and operational alerts via SMS. Reply STOP to opt out. Standard message and data rates may apply."
+RŌM — Account Creation (Guest)
+Place directly below the phone number field on the signup form.
+Primary Consent Language
+"By providing your phone number, you agree to receive SMS messages from Rōm (romlife.co) about your account and bookings, including confirmations, reminders, messages from guides, and payment notifications. Reply STOP to opt out at any time. Reply HELP for help. Message and data rates may apply. View our Privacy Policy and Terms of Service."
+Short Version
+"By providing your number, you consent to receive booking-related SMS from Rōm. Reply STOP to opt out. Msg rates may apply. Privacy Policy | Terms"
+RŌM — Guide Account Creation
+Place on the guide onboarding form adjacent to the phone number field.
+"By providing your phone number, you agree to receive SMS messages from Rōm about your guide account, including new booking notifications, guest messages, payout confirmations, and platform updates. Reply STOP to opt out at any time. Message and data rates may apply."
+STOP / HELP Auto-Responses
+Configure these in Twilio — they fire automatically when a user texts STOP or HELP.
+Tippd STOP Response
+"You have been unsubscribed from [Business Name] SMS notifications. You will no longer receive text messages. For service inquiries call or email us at [contact info]."
+Tippd HELP Response
+"[Business Name] help: For service questions call [phone] or email [email]. To unsubscribe reply STOP. Tippd support: [support email]."
+Rōm STOP Response
+"You have been unsubscribed from Rōm SMS notifications. You will no longer receive text messages. Manage your account at romlife.co or email support@romlife.co."
+Rōm HELP Response
+"Rōm help: support@romlife.co | romlife.co. Reply STOP to unsubscribe from all SMS."
+Database Fields Required
+Add these to both platforms' customer/user tables to record consent:
+Tippd — customers table additions
+sms_consent: boolean default false
+sms_consent_at: timestamptz nullable
+sms_consent_source: text nullable — booking_form | portal_signup | driver_onboarding
+sms_opted_out_at: timestamptz nullable — set when STOP received
+Rōm — profiles table additions
+sms_consent: boolean default false
+sms_consent_at: timestamptz nullable
+sms_consent_source: text nullable — guest_signup | guide_onboarding
+sms_opted_out_at: timestamptz nullable
+SMS Consent Language Reference  |  March 2026  |  Implement exactly as written
+
+=== C:/Users/Admin/OneDrive/Desktop/tippd/Tippd_Terms_of_Service.docx ===
+TIPPD
+━━━━━━━━━━━━━━━━━━━━━━
+Terms of Service
+Effective Date: March 2026
+LEGAL NOTICE: This document is a template. Have a licensed attorney review it before publishing. Fill in all [PLACEHOLDER] fields.
+Terms of Service
+Effective Date: March 2026
+These Terms of Service ("Terms") govern your use of the Tippd platform and services. By accessing or using Tippd, you agree to be bound by these Terms. If you do not agree, do not use our Services.
+1. Description of Services
+Tippd is a software platform that connects customers with roll-off dumpster rental operators. Tippd provides scheduling, dispatch, communication, invoicing, and operational management tools. Tippd is not a dumpster rental company — the operators listed on the platform are independent businesses responsible for service delivery.
+2. User Accounts
+You must provide accurate, current, and complete information when creating an account
+You are responsible for maintaining the security of your account credentials
+You must be at least 18 years old to create an account
+One person or entity may not maintain more than one active account
+We reserve the right to suspend or terminate accounts that violate these Terms
+3. Bookings & Service
+Bookings made through Tippd are agreements between you and the operator, not Tippd
+Operators set their own pricing, availability, and service terms
+Weight overage charges are calculated at the dump facility and applied to your invoice
+Daily rental charges apply after your contracted rental period
+Prohibited materials may not be placed in dumpsters — see the operator's prohibited materials list
+Customers are responsible for ensuring dumpster access at the time of pickup
+4. SMS Communications & Consent
+By providing your phone number and booking a service, you expressly consent to receive automated SMS text messages related to your service. These include booking confirmations, scheduling updates, driver ETAs, invoices, and payment reminders.
+Reply STOP to opt out of SMS at any time
+Reply HELP for assistance
+Opting out may affect our ability to provide time-sensitive service updates
+Standard message and data rates may apply
+5. Payments & Billing
+Base rental rates are displayed at booking and locked at time of confirmation
+Weight overage charges are calculated after disposal and added to your final invoice
+Invoices are due net 30 days from issue date
+Late fees of 7% apply at Day 60 and an additional 10% at Day 80
+Contractor autopay accounts are charged upon invoice generation
+All payments processed through Stripe — Tippd does not store payment card information
+Disputed charges must be raised within 30 days of invoice date
+6. Prohibited Uses
+You may not use our Services to:
+Place prohibited materials in dumpsters (hazardous waste, asbestos, tires, electronics — see full list)
+Provide false information about service addresses or job requirements
+Attempt to circumvent the platform to book directly with operators discovered through Tippd
+Use automated tools to scrape or access the platform
+Violate any applicable laws or regulations
+7. Intellectual Property
+The Tippd platform, including all software, design, trademarks, and content, is owned by Tippd and protected by intellectual property laws. You may not copy, modify, distribute, or create derivative works without our express written permission.
+8. Limitation of Liability
+TO THE MAXIMUM EXTENT PERMITTED BY LAW, TIPPD SHALL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES. TIPPD'S TOTAL LIABILITY SHALL NOT EXCEED THE AMOUNT PAID BY YOU FOR SERVICES IN THE 12 MONTHS PRECEDING THE CLAIM.
+Tippd is not responsible for the acts or omissions of operators. Service disputes are between you and the operator.
+9. Indemnification
+You agree to indemnify and hold harmless Tippd and its officers, directors, employees, and agents from any claims, damages, or expenses arising from your use of the Services or violation of these Terms.
+10. Dispute Resolution
+Any disputes arising from these Terms shall be resolved through binding arbitration in [PLACEHOLDER — fill in before publishing] (jurisdiction), except that either party may seek injunctive relief in court for intellectual property violations.
+11. Changes to Terms
+We may update these Terms at any time. Material changes will be communicated via email or platform notification. Continued use after changes constitutes acceptance.
+12. Contact
+Tippd Legal: [PLACEHOLDER — fill in before publishing]
+Address: [PLACEHOLDER — fill in before publishing]
+Website: [PLACEHOLDER — fill in before publishing]
+Tippd Terms of Service  |  March 2026  |  Review with counsel before publishing
+
+=== C:/Users/Admin/OneDrive/Desktop/tippd/Tippd_Privacy_Policy.docx ===
+TIPPD
+━━━━━━━━━━━━━━━━━━━━━━
+Privacy Policy
+Effective Date: March 2026
+LEGAL NOTICE: This document is a template. Have a licensed attorney review it before publishing. Fill in all [PLACEHOLDER] fields with your actual business information.
+Privacy Policy
+Effective Date: March 2026
+This Privacy Policy describes how Tippd ("we," "us," or "our") collects, uses, and shares information about you when you use our platform, website, and services (collectively, the "Services"). By using our Services, you agree to the collection and use of information in accordance with this policy.
+1. Information We Collect
+Information You Provide
+Account information: name, email address, phone number, business name, billing address
+Payment information: processed securely through Stripe — we do not store card numbers
+Job information: service addresses, dumpster size preferences, scheduling preferences
+Communications: messages, voicemails, and texts sent through our platform
+Profile information: contractor account details, tax ID (for contractor accounts)
+Information Collected Automatically
+Location data: GPS coordinates when using the driver app or booking a service
+Device information: browser type, operating system, IP address
+Usage data: pages visited, features used, time spent on the platform
+Booking funnel data: anonymous session data to improve the booking experience
+Communications metadata: timestamps and delivery status of SMS messages
+2. How We Use Your Information
+To provide and improve our Services — dispatch, scheduling, routing, invoicing
+To communicate with you about your bookings, deliveries, pickups, and account
+To send transactional SMS messages related to your service (see SMS section below)
+To process payments and manage billing
+To analyze usage patterns and improve platform performance
+To generate operational analytics and business insights for operators
+To comply with legal obligations
+3. SMS Communications & Text Messaging
+By providing your phone number and booking a service, you consent to receive SMS text messages from the operator using our platform. These messages are transactional in nature and include:
+Booking confirmations
+Day-before delivery window notifications
+Driver arrival and ETA updates
+Delivery and pickup completion confirmations
+Invoice notifications and payment reminders
+Service exception notifications (delays, access issues, rescheduling)
+Message frequency varies by job — typically 4-10 messages per service engagement. Standard message and data rates may apply.
+OPT-OUT: Reply STOP to any message to unsubscribe. Reply HELP for assistance. You can also manage communication preferences in your account settings.
+4. Information Sharing
+We do not sell your personal information. We share information only as follows:
+With the operator servicing your job (the dumpster company you booked with) — they need your contact and address information to deliver service
+With service providers: Stripe (payments), Twilio (SMS), Resend (email), Google (mapping and routing), Supabase (database hosting)
+With law enforcement when required by law or to protect our legal rights
+In connection with a business transfer, merger, or acquisition
+5. Data Retention
+Account data: retained while your account is active and for 3 years after closure
+Job records: retained for 7 years for tax and legal compliance
+Communications: retained for 2 years
+Payment records: retained per Stripe's data retention policies
+6. Security
+We implement industry-standard security measures including encryption in transit (TLS), encrypted database storage, and role-based access controls. No system is perfectly secure — if you believe your account has been compromised, contact us immediately.
+7. Your Rights
+Access: request a copy of the personal information we hold about you
+Correction: request correction of inaccurate information
+Deletion: request deletion of your account and associated data (subject to retention requirements)
+Opt-out of SMS: reply STOP to any message or update your account settings
+To exercise these rights, contact us at: [PLACEHOLDER — fill in before publishing] (privacy contact email)
+8. Children's Privacy
+Our Services are not directed to children under 13. We do not knowingly collect personal information from children under 13. If you believe we have collected information from a child, contact us immediately.
+9. Changes to This Policy
+We may update this Privacy Policy from time to time. We will notify you of material changes by email or through the platform. Continued use of our Services after changes constitutes acceptance.
+10. Contact Us
+Tippd Privacy Team
+Email: [PLACEHOLDER — fill in before publishing]
+Address: [PLACEHOLDER — fill in before publishing]
+Website: [PLACEHOLDER — fill in before publishing]
+Tippd Privacy Policy  |  March 2026  |  Review with counsel before publishing
+

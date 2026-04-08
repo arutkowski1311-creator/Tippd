@@ -1,18 +1,15 @@
-import type { Metadata, Viewport } from "next";
+import type { Metadata } from "next";
+import { Inter } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
+import { cn } from "@/lib/utils";
 import { Toaster } from "sonner";
-import { BottomNav } from "@/components/softball/bottom-nav";
+
+const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
 export const metadata: Metadata = {
-  title: "Lineup Lab — Youth Softball Lineup Manager",
-  description: "Generate fair, balanced lineups for youth softball. Mobile-first game management.",
-};
-
-export const viewport: Viewport = {
-  width: "device-width",
-  initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
+  title: "Tippd — Dumpster Rental Management",
+  description: "Smart dispatch, route optimization, and business intelligence for roll-off dumpster operators.",
 };
 
 export default function RootLayout({
@@ -21,33 +18,23 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark" suppressHydrationWarning>
-      <body className="font-sans antialiased" style={{ background: "hsl(0 0% 7%)", color: "hsl(40 20% 92%)" }}>
-        {/* Grass background with dark overlay */}
-        <div
-          className="fixed inset-0 z-0"
-          style={{
-            backgroundImage: "url('/images/grass-bg.jpg')",
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-            backgroundRepeat: "no-repeat",
-          }}
-        >
-          <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, hsl(0 0% 4% / 0.88) 0%, hsl(0 0% 6% / 0.92) 50%, hsl(0 0% 4% / 0.95) 100%)" }} />
-        </div>
-        <div className="relative z-10 min-h-screen pb-20">
-          {children}
-        </div>
-        <BottomNav />
+    <html lang="en" suppressHydrationWarning>
+      <body className={cn(inter.variable, "font-sans antialiased")}>
+        {children}
         <Toaster
-          position="top-center"
+          position="top-right"
           richColors
           closeButton
-          theme="dark"
           toastOptions={{
-            style: { fontSize: "14px", background: "hsl(0 0% 12%)", color: "hsl(40 20% 92%)", borderColor: "hsl(0 0% 18%)" },
+            style: { fontSize: "14px" },
           }}
         />
+        {process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY && (
+          <Script
+            src={`https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=places`}
+            strategy="lazyOnload"
+          />
+        )}
       </body>
     </html>
   );

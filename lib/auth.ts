@@ -1,208 +1,74 @@
-import { SignJWT, jwtVerify } from "jose";
-import { cookies } from "next/headers";
-import { prisma } from "./db";
-import bcrypt from "bcryptjs";
+import { createClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
+import type { UserRole } from "@/types/user";
 
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || "lineup-lab-dev-secret-change-in-production"
-);
+export async function getCurrentUser() {
+  const supabase = await createClient();
+  const {
+    data: { user: authUser },
+  } = await supabase.auth.getUser();
 
-const SESSION_COOKIE = "lineup-lab-session";
-const SESSION_DURATION = 60 * 60 * 24 * 30; // 30 days
+  if (!authUser) return null;
 
-export interface SessionPayload {
-  userId: string;
-  email: string;
-  name: string;
+  const { data: user } = await supabase
+    .from("users")
+    .select("*")
+    .eq("id", authUser.id)
+    .single();
+
+  return user;
 }
 
-export async function createSession(userId: string, email: string, name: string): Promise<string> {
-  const token = await new SignJWT({ userId, email, name })
-    .setProtectedHeader({ alg: "HS256" })
-    .setExpirationTime(`${SESSION_DURATION}s`)
-    .setIssuedAt()
-    .sign(JWT_SECRET);
-
-  const cookieStore = await cookies();
-  cookieStore.set(SESSION_COOKIE, token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    maxAge: SESSION_DURATION,
-    path: "/",
-  });
-
-  return token;
+export async function requireAuth() {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  return user;
 }
 
-export async function getSession(): Promise<SessionPayload | null> {
-  const cookieStore = await cookies();
-  const token = cookieStore.get(SESSION_COOKIE)?.value;
-  if (!token) return null;
-
-  try {
-    const { payload } = await jwtVerify(token, JWT_SECRET);
-    return payload as unknown as SessionPayload;
-  } catch {
-    return null;
+export async function requireRole(...roles: UserRole[]) {
+  const user = await requireAuth();
+  if (!roles.includes(user.role)) {
+    redirect("/unauthorized");
   }
+  return user;
 }
 
-export async function clearSession(): Promise<void> {
-  const cookieStore = await cookies();
-  cookieStore.delete(SESSION_COOKIE);
+export async function requireOperator() {
+  const user = await requireAuth();
+  if (!user.operator_id) {
+    redirect("/onboarding");
+  }
+  return { user, operatorId: user.operator_id as string };
 }
 
-export async function signUp(email: string, password: string, name: string, inviteToken: string) {
-  // Validate invite token
-  const invite = await prisma.invite.findUnique({
-    where: { token: inviteToken },
-    include: { team: true },
-  });
+// For API routes — returns user or throws
+export async function getApiUser() {
+  const supabase = await createClient();
+  const {
+    data: { user: authUser },
+  } = await supabase.auth.getUser();
 
-  if (!invite) {
-    throw new Error("Invalid invite link");
-  }
-  if (invite.status !== "pending") {
-    throw new Error("This invite has already been used or revoked");
-  }
-  if (invite.expiresAt < new Date()) {
-    await prisma.invite.update({ where: { id: invite.id }, data: { status: "expired" } });
-    throw new Error("This invite has expired");
-  }
-  if (invite.email.toLowerCase() !== email.toLowerCase()) {
-    throw new Error("Email does not match the invite");
+  if (!authUser) {
+    throw new Error("Unauthorized");
   }
 
-  const existing = await prisma.user.findUnique({ where: { email } });
-  if (existing) {
-    throw new Error("Email already registered");
-  }
+  const { data: user } = await supabase
+    .from("users")
+    .select("*")
+    .eq("id", authUser.id)
+    .single();
 
-  const hashedPassword = await bcrypt.hash(password, 10);
-
-  // Create user, team membership, and mark invite accepted in a transaction
-  const user = await prisma.$transaction(async (tx) => {
-    const newUser = await tx.user.create({
-      data: { email, password: hashedPassword, name },
-    });
-
-    // Create team membership with the invited role
-    await tx.teamMembership.create({
-      data: {
-        teamId: invite.teamId,
-        userId: newUser.id,
-        role: invite.role,
-        status: "active",
-      },
-    });
-
-    // If linked to a player, create guardian relationship
-    if (invite.linkedPlayerId) {
-      await tx.guardian.create({
-        data: {
-          playerId: invite.linkedPlayerId,
-          userId: newUser.id,
-          name: name,
-          email: email,
-          relationship: "parent",
-        },
-      });
-    }
-
-    // Mark invite as accepted
-    await tx.invite.update({
-      where: { id: invite.id },
-      data: {
-        status: "accepted",
-        acceptedAt: new Date(),
-        acceptedUserId: newUser.id,
-      },
-    });
-
-    return newUser;
-  });
-
-  await createSession(user.id, user.email, user.name);
-  return { id: user.id, email: user.email, name: user.name, teamName: invite.team.name };
-}
-
-export async function signIn(identifier: string, password: string) {
-  // Try email first, then username
-  let user = await prisma.user.findUnique({ where: { email: identifier } });
   if (!user) {
-    user = await prisma.user.findUnique({ where: { username: identifier } });
-  }
-  if (!user) throw new Error("Invalid credentials");
-
-  const valid = await bcrypt.compare(password, user.password);
-  if (!valid) throw new Error("Invalid credentials");
-
-  await createSession(user.id, user.email, user.name);
-  return { id: user.id, email: user.email, name: user.name };
-}
-
-// Get the current user's active team (first team membership)
-export async function getUserTeam(userId: string) {
-  const membership = await prisma.teamMembership.findFirst({
-    where: { userId, status: "active" },
-    include: { team: true },
-  });
-  return membership;
-}
-
-// For MVP: get or create a default team for the user
-export async function ensureUserTeam(userId: string) {
-  let membership = await prisma.teamMembership.findFirst({
-    where: { userId, status: "active" },
-    include: { team: true },
-  });
-
-  if (!membership) {
-    // Check if there's a "default-team" to join (backward compat with seed data)
-    let team = await prisma.team.findFirst({ where: { id: "default-team" } });
-    if (!team) {
-      team = await prisma.team.create({
-        data: { id: "default-team", name: "My Team", slug: "my-team" },
-      });
-    }
-    membership = await prisma.teamMembership.create({
-      data: { teamId: team.id, userId, role: "head_coach" },
-      include: { team: true },
-    });
+    throw new Error("User profile not found");
   }
 
-  return membership;
+  return user;
 }
 
-// Coach roles: can manage games, players, lineups, invites
-const COACH_ROLES = ["head_coach", "assistant_coach", "admin"];
-
-// Manager roles: can see player ratings (head_coach = "Manager" in UI)
-const MANAGER_ROLES = ["head_coach", "admin"];
-
-export function isCoachRole(role: string): boolean {
-  return COACH_ROLES.includes(role);
-}
-
-export function isManagerRole(role: string): boolean {
-  return MANAGER_ROLES.includes(role);
-}
-
-export async function getUserRole(userId: string): Promise<string | null> {
-  const membership = await getUserTeam(userId);
-  return membership?.role ?? null;
-}
-
-/** Display-friendly role label */
-export function roleLabel(role: string): string {
-  switch (role) {
-    case "head_coach": return "Manager";
-    case "assistant_coach": return "Assistant Coach";
-    case "admin": return "Admin";
-    case "scorekeeper": return "Scorekeeper";
-    case "parent": return "Parent";
-    case "member": return "Member";
-    default: return role;
+export async function requireApiRole(...roles: UserRole[]) {
+  const user = await getApiUser();
+  if (!roles.includes(user.role)) {
+    throw new Error("Forbidden");
   }
+  return user;
 }
