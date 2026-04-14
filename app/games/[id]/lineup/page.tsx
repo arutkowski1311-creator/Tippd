@@ -23,6 +23,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { FieldingGrid } from "@/components/softball/fielding-grid";
+import { FieldingStats } from "@/components/softball/fielding-stats";
 import { PositionPicker } from "@/components/softball/position-picker";
 import { validateLineup, hasErrors } from "@/lib/validation";
 import type {
@@ -161,6 +162,14 @@ export default function LineupEditorPage() {
       });
     }
     setFieldingAssignments(withoutPlayer);
+    setPickerOpen(false);
+  }
+
+  function clearCellAssignment() {
+    const updated = fieldingAssignments.filter(
+      (f) => !(f.inningNumber === pickerInning && f.position === pickerPosition)
+    );
+    setFieldingAssignments(updated);
     setPickerOpen(false);
   }
 
@@ -382,13 +391,21 @@ export default function LineupEditorPage() {
 
       {/* Fielding */}
       {activeTab === "fielding" && (
-        <FieldingGrid
-          assignments={fieldingAssignments}
-          players={players}
-          onCellClick={lineupLocked ? undefined : handleCellClick}
-          defensiveFormat={(game?.defensiveFormat as import("@/lib/types").DefensiveFormat) || "four_outfield"}
-          allPlayerIds={battingOrder.map((b) => b.playerId)}
-        />
+        <div className="flex flex-col gap-3">
+          <FieldingGrid
+            assignments={fieldingAssignments}
+            players={players}
+            onCellClick={lineupLocked ? undefined : handleCellClick}
+            defensiveFormat={(game?.defensiveFormat as import("@/lib/types").DefensiveFormat) || "four_outfield"}
+            allPlayerIds={battingOrder.map((b) => b.playerId)}
+          />
+          <FieldingStats
+            assignments={fieldingAssignments}
+            players={players}
+            allPlayerIds={battingOrder.map((b) => b.playerId)}
+            totalInnings={6}
+          />
+        </div>
       )}
 
       {/* Action buttons */}
@@ -467,25 +484,106 @@ export default function LineupEditorPage() {
               Inning {pickerInning} - {pickerPosition}
             </DialogTitle>
           </DialogHeader>
-          <div className="flex flex-col gap-2 max-h-[50vh] overflow-y-auto">
-            {players.map((player) => (
-              <button
-                key={player.id}
-                type="button"
-                onClick={() => assignPlayerToCell(player.id)}
-                className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors",
-                  pickerPlayerId === player.id
-                    ? "bg-[hsl(46_100%_50%/0.12)] ring-1 ring-[hsl(46_100%_50%/0.5)] text-[hsl(0_0%_93%)]"
-                    : "bg-[hsl(0_0%_11%)] text-[hsl(0_0%_85%)] hover:bg-[hsl(0_0%_14%)]"
+          {(() => {
+            // Determine which players are in the roster for this game
+            const rosterIds = new Set(battingOrder.map((b) => b.playerId));
+            const rosterPlayers = players.filter((p) => rosterIds.has(p.id));
+
+            // Build map of assignments for this inning (playerId -> position)
+            const inningAssignmentMap = new Map<string, string>();
+            for (const a of fieldingAssignments) {
+              if (a.inningNumber === pickerInning) {
+                inningAssignmentMap.set(a.playerId, a.position);
+              }
+            }
+
+            const available = rosterPlayers.filter(
+              (p) => !inningAssignmentMap.has(p.id)
+            );
+            const inField = rosterPlayers.filter((p) =>
+              inningAssignmentMap.has(p.id)
+            );
+
+            return (
+              <div className="flex flex-col gap-3 max-h-[55vh] overflow-y-auto">
+                {pickerPlayerId && (
+                  <button
+                    type="button"
+                    onClick={clearCellAssignment}
+                    className="flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 bg-red-900/20 text-red-400 border border-red-500/30 hover:bg-red-900/30 transition-colors text-sm font-medium"
+                  >
+                    Remove from {pickerPosition}
+                  </button>
                 )}
-              >
-                <span className="flex-1 font-medium text-sm">
-                  {playerFullName(player.firstName, player.lastName)}
-                </span>
-              </button>
-            ))}
-          </div>
+
+                {available.length > 0 && (
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-[hsl(195_85%_60%)] mb-1.5 px-1">
+                      Available ({available.length})
+                    </p>
+                    <div className="flex flex-col gap-1.5">
+                      {available.map((player) => (
+                        <button
+                          key={player.id}
+                          type="button"
+                          onClick={() => assignPlayerToCell(player.id)}
+                          className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-left bg-[hsl(195_60%_15%/0.3)] text-[hsl(0_0%_93%)] border border-[hsl(195_60%_30%/0.3)] hover:bg-[hsl(195_60%_20%/0.5)] transition-colors"
+                        >
+                          <span className="flex-1 font-medium text-sm">
+                            {playerFullName(player.firstName, player.lastName)}
+                          </span>
+                          <span className="text-[10px] text-[hsl(195_85%_60%)] font-bold uppercase">
+                            Bench
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {inField.length > 0 && (
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-[hsl(0_0%_50%)] mb-1.5 px-1">
+                      Already in Field
+                    </p>
+                    <div className="flex flex-col gap-1.5">
+                      {inField.map((player) => {
+                        const currentPos = inningAssignmentMap.get(player.id);
+                        const isAtThisCell = pickerPlayerId === player.id;
+                        return (
+                          <button
+                            key={player.id}
+                            type="button"
+                            onClick={() => assignPlayerToCell(player.id)}
+                            className={cn(
+                              "flex items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors",
+                              isAtThisCell
+                                ? "bg-[hsl(46_100%_50%/0.12)] ring-1 ring-[hsl(46_100%_50%/0.5)] text-[hsl(0_0%_93%)]"
+                                : "bg-[hsl(0_0%_11%)] text-[hsl(0_0%_70%)] hover:bg-[hsl(0_0%_14%)]"
+                            )}
+                          >
+                            <span className="flex-1 font-medium text-sm">
+                              {playerFullName(player.firstName, player.lastName)}
+                            </span>
+                            <span
+                              className={cn(
+                                "text-[10px] font-bold uppercase",
+                                isAtThisCell
+                                  ? "text-[hsl(46_100%_50%)]"
+                                  : "text-[hsl(0_0%_45%)]"
+                              )}
+                            >
+                              {currentPos}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         </DialogContent>
       </Dialog>
     </div>

@@ -121,22 +121,22 @@ export function FieldingGrid({
               })}
             </tr>
           ))}
-          {/* Bench row — shows players not in the field */}
+          {/* Bench row — shows players not in the field this inning (available to sub in) */}
           {hasBench && (
-            <tr className="border-t-2 border-[hsl(0_0%_20%)]">
-              <td className="sticky left-0 z-10 bg-[hsl(0_0%_7%)] px-2 py-1 font-bold text-xs text-[hsl(0_0%_40%)]">
-                BN
+            <tr className="border-t-2 border-[hsl(46_100%_50%/0.25)]">
+              <td className="sticky left-0 z-10 bg-[hsl(0_0%_7%)] px-2 py-1 font-bold text-[10px] text-[hsl(195_85%_60%)] uppercase tracking-wider align-top">
+                Avail
               </td>
               {INNINGS.map((inning) => {
                 const bench = getBenchPlayers(inning);
                 return (
-                  <td key={inning} className="px-0.5 py-0.5">
+                  <td key={inning} className="px-0.5 py-0.5 align-top">
                     <div className="flex flex-col gap-0.5">
                       {bench.length > 0 ? (
                         bench.map((p) => (
                           <div
                             key={p.id}
-                            className="flex items-center justify-center w-full rounded px-1 py-1 text-xs font-medium bg-[hsl(0_0%_8%)] text-[hsl(0_0%_45%)] border border-[hsl(0_0%_12%)] min-h-[28px]"
+                            className="flex items-center justify-center w-full rounded px-1 py-1 text-xs font-medium bg-[hsl(195_60%_15%/0.4)] text-[hsl(195_85%_70%)] border border-[hsl(195_60%_30%/0.4)] min-h-[28px]"
                           >
                             <span className="truncate">{p.firstName}</span>
                           </div>
